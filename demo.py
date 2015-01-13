@@ -3,7 +3,8 @@ import pylae.utils as utils
 
 import numpy as np
 import pylab as plt
-import os		
+import os	
+import copy	
 		
 network_name = "demo_"
 
@@ -11,15 +12,16 @@ network_name = "demo_"
 # ! The data *must* be normalised here
 data = np.loadtxt("data/digit0.dat", delimiter=",")
 data, _ , _ = utils.normalise(data)
-size = np.sqrt(np.shape(data)[0])
+data = data.T
+size = np.sqrt(np.shape(data)[1])
 
 # Can we skip some part of the training ?
-pre_train = True
-train = True
+pre_train = False
+train = False
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [256, 64, 8]
+architecture = [256, 64, 16]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
@@ -54,13 +56,16 @@ else :
 
 # Use the training data as if it were a training set
 data, _ , _ = utils.normalise(data)
-reconstruc = ae.feedforward(data)
+test = copy.deepcopy(data)
+np.random.shuffle(test)
+
+reconstruc = ae.feedforward(test)
 
 # Compute the RMSD error for the training set
 rmsd = []
-for ii in range(np.shape(data)[1]) :
-	img = data[:,ii].reshape(size,size)
-	recon = reconstruc[:,ii].reshape(size,size)
+for ii in range(np.shape(test)[0]) :
+	img = test[ii].reshape(size,size)
+	recon = reconstruc[ii].reshape(size,size)
 	rmsd.append(np.sqrt(np.mean((img - recon)*(img - recon))))
 
 # Show the figures for the distribution of the RMSD and the learning curves
@@ -71,8 +76,8 @@ ae.plot_rmsd_history()
 
 # Show the original image, the reconstruction and the residues for the first 10 cases
 for ii in range(10):
-	img = data[:,ii].reshape(size,size)
-	recon = reconstruc[:,ii].reshape(size,size)
+	img = test[ii].reshape(size,size)
+	recon = reconstruc[ii].reshape(size,size)
 
 	plt.figure()
 	plt.subplot(1, 3, 1)

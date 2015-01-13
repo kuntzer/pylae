@@ -50,6 +50,7 @@ class AutoEncoder():
 		"""
 		
 		"""
+		
 		assert len(architecture) + 1 == len(layers_type)
 		
 		# Archiving the configuration
