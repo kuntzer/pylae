@@ -7,12 +7,14 @@ import os
 		
 network_name = "demo_"
 
-# Load the data and remember the size of the data (assume a square image here
+# Load the data and remember the size of the data (assume a square image here)
+# ! The data *must* be normalised here
 data = np.loadtxt("data/digit0.dat", delimiter=",")
+data, _ , _ = utils.normalise(data)
 size = np.sqrt(np.shape(data)[0])
 
 # Can we skip some part of the training ?
-pre_train = True
+pre_train = False
 train = True
 
 # Definition of the first half of the autoencoder -- the encoding bit.
@@ -41,10 +43,9 @@ elif not pre_train and train :
 	
 if train:
 	print 'Starting backpropagation'
-	data, _ , _ = utils.normalise(data)
 	ae.backpropagation(data, iterations=500, learn_rate=0.001, momentum_rate=0.9)
 
-	ae.save(ae, "%sautoencoder.pkl" % network_name)
+	ae.save("%sautoencoder.pkl" % network_name)
 	
 	os.system("/usr/bin/canberra-gtk-play --id='complete-media-burn'")
 

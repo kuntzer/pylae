@@ -60,9 +60,6 @@ class AutoEncoder():
 				'early_stop':early_stop}
 		self.rbms_config = rbms_config
 		
-		# Normalising data
-		data_train, self.pretrain_low, self.pretrain_high = utils.normalise(data)
-		
 		rbms = []
 		for ii in range(len(architecture)):
 			print "Pre-training layer %d..." % (ii + 1)
@@ -71,11 +68,11 @@ class AutoEncoder():
 			layer = RBM.RBM(architecture[ii], layers_type[ii], layers_type[ii+1], mini_batch, 
 						iterations, max_epoch_without_improvement=max_epoch_without_improvement, 
 						early_stop=early_stop)
-			layer.train(data_train, learn_rate_w=learnr, learn_rate_visb=learnr, 
+			layer.train(data, learn_rate_w=learnr, learn_rate_visb=learnr, 
 					learn_rate_hidb=learnr, initialmomentum=initialmomentum, 
 					finalmomentum=finalmomentum,
 					weightcost=weightcost)
-			data_train = layer.feedforward(data_train)
+			data = layer.feedforward(data)
 	
 			rbms.append(layer)
 		
@@ -168,7 +165,7 @@ class AutoEncoder():
 				else :
 					momentum[jj] = momentum_rate*momentum[jj] + grad
 
-				layer.weights -= learning_rate*momentum[jj]
+				layer.weights -= learn_rate*momentum[jj]
 			if best_rmsd is not None:	
 				rsmd_grad = (rmsd - best_rmsd) / best_rmsd
 				print "Epoch %4d/%4d, RMS deviation = %7.4f, RMSD grad = %7.4f, early stopping is %d epoch ago" % (
@@ -214,8 +211,10 @@ class AutoEncoder():
 		import pylab as plt
 				
 		plt.figure()
-		for layer in self.rbms :
-			plt.plot(np.arange(np.size(layer.rmsd_history)), layer.rmsd_history, lw=2, label="%d nodes" % layer.hidden_nodes)
+		if self.is_pretrained:
+			for layer in self.rbms :
+				plt.plot(np.arange(np.size(layer.rmsd_history)), layer.rmsd_history, lw=2, 
+						label="%d nodes" % layer.hidden_nodes)
 		plt.plot(np.arange(np.size(self.rmsd_history)), self.rmsd_history, lw=2, label="Backprop")	
 		plt.grid()
 		plt.legend(loc="best")
