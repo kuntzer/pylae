@@ -14,8 +14,8 @@ dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
 
 # Can we skip some part of the training ?
-pre_train = True
-train = True
+pre_train = False
+train = False
 
 # Separate into training and testing data
 train_data = dataset[0:1000]
@@ -65,30 +65,18 @@ np.random.shuffle(test_data)
 reconstructest = ae.feedforward(test_data)
 
 # Compute the RMSD error for the training set
-rmsd_train = []
-for ii in range(np.shape(train_data)[0]) :
-	print ii, size, np.shape(train_data)[0]
-	img = train_data[ii].reshape(size,size)
-	recon = reconstruc[ii].reshape(size,size)
-	rmsd_train.append(np.sqrt(np.mean((img - recon)*(img - recon))))
-	if ii == 0:
-		recon_avg = img - recon
-	else:
-		recon_avg += (img - recon)
+rmsd_train = utils.compute_rmsd(train_data, reconstruc)
+recon_avg = np.sum(train_data - reconstruc, axis=0)
 recon_avg /= np.shape(train_data)[0]
-corr = recon_avg
+corr = recon_avg.reshape(size,size)
 
 # Compute the RMSD error for the test set
-rmsd_test = []
-for ii in range(np.shape(test_data)[0]) :
-	img = test_data[ii].reshape(size,size)
-	recon = reconstructest[ii].reshape(size,size)
-	rmsd_test.append(np.sqrt(np.mean((img - recon)*(img - recon))))
+rmsd_test = utils.compute_rmsd(test_data, reconstructest)
 
 # Show the figures for the distribution of the RMSD and the learning curves
 plt.figure()
-plt.hist(rmsd_train, label="training")
-plt.hist(rmsd_test, label="test")
+plt.hist(rmsd_train, normed=True, label="training")
+plt.hist(rmsd_test, normed=True, label="test")
 plt.legend(loc="best")
 
 ae.plot_rmsd_history()
@@ -108,7 +96,7 @@ for ii in range(10):
 	plt.imshow((img - recon), interpolation="nearest")
 	plt.colorbar()
 	plt.subplot(2, 3, 4)
-	plt.imshow((recon_avg), interpolation="nearest")
+	plt.imshow((corr), interpolation="nearest")
 	plt.colorbar()
 	plt.subplot(2, 3, 5)
 	plt.imshow((recon + corr), interpolation="nearest")

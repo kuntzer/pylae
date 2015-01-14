@@ -30,10 +30,11 @@ def writepickle(obj, filepath, protocol = -1):
 	
 def normalise(arr):
 	"""
-	Normalise between 0 and 1 the data
+	Normalise between 0 and 1 the data, see `func:unnormalise` for the inverse function
+	
 	:param arr: the data to normalise
 	
-	:returns: 
+	:returns: normed array, lowest value, highest value
 	"""
 	low = np.amin(arr)
 	high = np.amax(arr)
@@ -42,3 +43,14 @@ def normalise(arr):
 
 def unnormalise(arr, low, high):
 	return arr * (high - low) + low
+
+def compute_rmsd(model, truth):
+	"""
+	Compute the root-mean-square deviation for the model and the truth.
+	
+	:param model:
+	:param truth:
+	"""	
+	
+	rmsd = np.sqrt(np.mean((model-truth)*(model-truth),axis=1))
+	return rmsd

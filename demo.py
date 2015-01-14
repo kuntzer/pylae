@@ -62,11 +62,7 @@ np.random.shuffle(test)
 reconstruc = ae.feedforward(test)
 
 # Compute the RMSD error for the training set
-rmsd = []
-for ii in range(np.shape(test)[0]) :
-	img = test[ii].reshape(size,size)
-	recon = reconstruc[ii].reshape(size,size)
-	rmsd.append(np.sqrt(np.mean((img - recon)*(img - recon))))
+rmsd = utils.compute_rmsd(test, reconstruc)
 
 # Show the figures for the distribution of the RMSD and the learning curves
 plt.figure()
