@@ -75,9 +75,7 @@ rmsd_test = utils.compute_rmsd(test_data, reconstructest)
 
 # Show the figures for the distribution of the RMSD and the learning curves
 plt.figure()
-plt.hist(rmsd_train, normed=True, label="training")
-plt.hist(rmsd_test, normed=True, label="test")
-plt.legend(loc="best")
+pylae.plots.hist(rmsd_train, rmsd_test)
 
 ae.plot_rmsd_history()
 
