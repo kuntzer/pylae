@@ -25,6 +25,8 @@ psf_beta = 5
 # n x n pixels
 image_size = 32 
 
+# Parameter preview ?
+parampre = False
 ###################################################################################################
 # Initialization
 
@@ -32,25 +34,23 @@ ud = galsim.UniformDeviate()
 def rnd(ud):
 	return (ud() - 0.5) * 0.25;
 
-"""
-r = []
-for i in range(10000):
-	r.append(rnd(ud))
-
-r = np.asarray(r)
-print np.amin(r), np.amax(r)
-
-plt.figure()
-plt.hist(r)
-plt.show()
-
-exit()
-"""
+if parampre :
+	r = []
+	for i in range(10000):
+		r.append(rnd(ud))
+	
+	r = np.asarray(r)
+	print np.amin(r), np.amax(r)
+	
+	plt.figure()
+	plt.hist(r)
+	plt.show()	
+	exit()
 
 psffname = "%s/psfs-%s.dat" % (outdir, run_name)
 truthfname = "%s/truth-%s.dat" % (outdir, run_name)
 
-if (os.path.exists(psffname) or os.path.exists(truthfname)) and False:
+if (os.path.exists(psffname) or os.path.exists(truthfname)):
 	print 'Either of the following files exists :'
 	print psffname
 	print truthfname
