@@ -10,9 +10,9 @@ network_name = "demo_"
 
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
-data = np.loadtxt("data/digit0.dat", delimiter=",")
+data = np.loadtxt("data/digit.dat", delimiter=",")
 data, _ , _ = utils.normalise(data)
-data = data.T
+#data = data.T
 size = np.sqrt(np.shape(data)[1])
 
 # Can we skip some part of the training ?
@@ -21,7 +21,7 @@ train = False
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [256, 64, 16]
+architecture = [256, 64, 8]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]

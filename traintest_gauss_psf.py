@@ -11,22 +11,22 @@ network_name = "gauss_psf_"
 # ! The data *must* be normalised here
 dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
 dataset, low, high = utils.normalise(dataset)
-size = np.sqrt(np.shape(dataset)[0])
+size = np.sqrt(np.shape(dataset)[1])
 
 # Can we skip some part of the training ?
 pre_train = True
 train = True
 
 # Separate into training and testing data
-train_data = dataset[:,0:1000]
-test_data = dataset[:,1000:2000]
+train_data = dataset[0:1000]
+test_data = dataset[1000:]
 
-print 'Shape of the training data: ', np.shape(train_data)
-print 'Shape of the training data: ', np.shape(test_data)
+print 'Shape of the training set: ', np.shape(train_data)
+print 'Shape of the testing set: ', np.shape(test_data)
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [784, 392, 196, 98, 8]
+architecture = [784, 392, 196, 98, 15]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
@@ -60,20 +60,29 @@ else :
 	ae = utils.readpickle("%sautoencoder.pkl" % network_name)
 
 # Use the training data as if it were a training set
-reconstruc = ae.feedforward(test_data)
+reconstruc = ae.feedforward(train_data)
+np.random.shuffle(test_data)
+reconstructest = ae.feedforward(test_data)
 
 # Compute the RMSD error for the training set
 rmsd_train = []
-for ii in range(np.shape(train_data)[1]) :
-	img = train_data[:,ii].reshape(size,size)
-	recon = reconstruc[:,ii].reshape(size,size)
+for ii in range(np.shape(train_data)[0]) :
+	print ii, size, np.shape(train_data)[0]
+	img = train_data[ii].reshape(size,size)
+	recon = reconstruc[ii].reshape(size,size)
 	rmsd_train.append(np.sqrt(np.mean((img - recon)*(img - recon))))
+	if ii == 0:
+		recon_avg = img - recon
+	else:
+		recon_avg += (img - recon)
+recon_avg /= np.shape(train_data)[0]
+corr = recon_avg
 
 # Compute the RMSD error for the test set
 rmsd_test = []
-for ii in range(np.shape(test_data)[1]) :
-	img = test_data[:,ii].reshape(size,size)
-	recon = reconstruc[:,ii].reshape(size,size)
+for ii in range(np.shape(test_data)[0]) :
+	img = test_data[ii].reshape(size,size)
+	recon = reconstructest[ii].reshape(size,size)
 	rmsd_test.append(np.sqrt(np.mean((img - recon)*(img - recon))))
 
 # Show the figures for the distribution of the RMSD and the learning curves
@@ -85,15 +94,27 @@ plt.legend(loc="best")
 ae.plot_rmsd_history()
 
 # Show the original test image, the reconstruction and the residues for the first 10 cases
-for ii in range(20):
-	img = train_data[:,ii].reshape(size,size)
-	recon = reconstruc[:,ii].reshape(size,size)
+for ii in range(10):
+	img = test_data[ii].reshape(size,size)
+	recon = reconstructest[ii].reshape(size,size)
 
 	plt.figure()
-	plt.subplot(1, 3, 1)
+	plt.subplot(2, 3, 1)
 	plt.imshow((img), interpolation="nearest")
-	plt.subplot(1, 3, 2)
+	plt.subplot(2, 3, 2)
 	plt.imshow((recon), interpolation="nearest")
-	plt.subplot(1, 3, 3)
+	plt.colorbar()
+	plt.subplot(2, 3, 3)
 	plt.imshow((img - recon), interpolation="nearest")
+	plt.colorbar()
+	plt.subplot(2, 3, 4)
+	plt.imshow((recon_avg), interpolation="nearest")
+	plt.colorbar()
+	plt.subplot(2, 3, 5)
+	plt.imshow((recon + corr), interpolation="nearest")
+	plt.colorbar()
+	plt.subplot(2, 3, 6)
+	plt.imshow((img - corr - recon), interpolation="nearest")
+	plt.colorbar()
+	plt.xlabel("RMS Deviation : %1.4f" % (rmsd_test[ii]))
 plt.show()
