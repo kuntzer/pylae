@@ -17,3 +17,11 @@ def hist(train, test, validation=None):
 	
 	plt.legend(loc="best")
 	plt.grid()
+	
+
+def lc_dataset_size(datasize, train, test):
+	plt.plot(datasize, train, label='train error')
+	plt.plot(datasize, test, label='test error')
+	
+	plt.legend(loc="best")
+	plt.grid()

@@ -5,31 +5,42 @@ import numpy as np
 import pylab as plt
 import os		
 		
+import galsim
+
 network_name = "gauss_psf_"
 
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
-dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
+#dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
+dataset = np.loadtxt("data/psfs-smalldev.dat", delimiter=",")
+
 dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
 
 # Can we skip some part of the training ?
 pre_train = False
-train = False
+train = pre_train
 
 # Separate into training and testing data
-train_data = dataset[0:1000]
-test_data = dataset[1000:]
+datasize = np.shape(dataset)[0]
+trainper = 0.7
+ind = np.int(trainper * datasize)
+
+train_data = dataset[0:ind]
+test_data = dataset[ind:]
+test_data = train_data
+#test_data[0] = np.zeros_like(test_data[0])
 
 print 'Shape of the training set: ', np.shape(train_data)
 print 'Shape of the testing set: ', np.shape(test_data)
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [784, 392, 196, 98, 15]
+architecture = [784, 392, 196, 98, 16]
+#architecture = [256, 128, 64, 32]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
-layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
+layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 
 # Let's go
 ae = pylae.autoencoder.AutoEncoder(network_name)
@@ -50,7 +61,7 @@ elif not pre_train and train :
 	
 if train:
 	print 'Starting backpropagation'
-	ae.backpropagation(train_data, iterations=500, learn_rate=0.001, momentum_rate=0.9)
+	ae.backpropagation(train_data, iterations=150, learn_rate=0.001, momentum_rate=0.9)
 
 	ae.save("%sautoencoder.pkl" % network_name)
 	
@@ -61,7 +72,7 @@ else :
 
 # Use the training data as if it were a training set
 reconstruc = ae.feedforward(train_data)
-np.random.shuffle(test_data)
+#np.random.shuffle(test_data)
 reconstructest = ae.feedforward(test_data)
 
 # Compute the RMSD error for the training set
@@ -79,23 +90,48 @@ pylae.plots.hist(rmsd_train, rmsd_test)
 
 ae.plot_rmsd_history()
 
+truth = np.loadtxt("data/truth-smalldev.dat", delimiter=",")
+
 # Show the original test image, the reconstruction and the residues for the first 10 cases
 for ii in range(10):
 	img = test_data[ii].reshape(size,size)
 	recon = reconstructest[ii].reshape(size,size)
 
+	try:
+		gps = galsim.Image(img)
+		res = galsim.hsm.FindAdaptiveMom(gps)
+		dg1=res.observed_shape.g1
+		dg2=res.observed_shape.g2
+	except :
+		dg1 = 20
+		dg2 = 20
+		
+	gps = galsim.Image(recon)
+	res = galsim.hsm.FindAdaptiveMom(gps)
+	rg1=res.observed_shape.g1
+	rg2=res.observed_shape.g2
+
+	tg1, tg2 = truth[ii,0:2]
+	
 	plt.figure()
-	plt.subplot(2, 3, 1)
+	
+	plt.subplot(1, 3, 1)
 	plt.imshow((img), interpolation="nearest")
-	plt.subplot(2, 3, 2)
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\n...........\ntg1 = %1.4f\ntg2 = %1.4f" % (dg1, dg2, tg1, tg2), va="top")
+	plt.subplot(1, 3, 2)
 	plt.imshow((recon), interpolation="nearest")
-	plt.colorbar()
-	plt.subplot(2, 3, 3)
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f" % (rg1, rg2), va="top")
+	#plt.colorbar()
+	plt.subplot(1, 3, 3)
 	plt.imshow((img - recon), interpolation="nearest")
+	plt.colorbar()
+	
+	
+	"""
 	plt.colorbar()
 	plt.subplot(2, 3, 4)
 	plt.imshow((corr), interpolation="nearest")
-	plt.colorbar()
+	#plt.colorbar()
 	plt.subplot(2, 3, 5)
 	plt.imshow((recon + corr), interpolation="nearest")
 	plt.colorbar()
@@ -103,4 +139,5 @@ for ii in range(10):
 	plt.imshow((img - corr - recon), interpolation="nearest")
 	plt.colorbar()
 	plt.xlabel("RMS Deviation : %1.4f" % (rmsd_test[ii]))
+	"""
 plt.show()
