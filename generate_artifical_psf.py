@@ -13,7 +13,7 @@ outdir = 'data'
 run_name = 'smalldev'
 
 # Number of PSFs
-n = 5000
+n = 3000
 
 # Pixel scale in arcsec / pixel
 pixel_scale = 0.1
@@ -29,14 +29,14 @@ image_size = 28
 parampre = False
 
 # Noise level
-noise = 0.#0002
+noise = 0.#0.0005
 
 ###################################################################################################
 # Initialization
 
 ud = galsim.UniformDeviate() 
 def rnd(ud):
-	return (ud() - 0.5) * 0.4;
+	return (ud() - 0.5) * 0.2;
 
 if parampre :
 	r = []

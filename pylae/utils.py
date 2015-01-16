@@ -2,6 +2,7 @@ import cPickle as pickle
 import gzip
 import os
 import numpy as np
+import galsim
 
 def readpickle(filepath):
 	"""
@@ -54,3 +55,22 @@ def compute_rmsd(model, truth):
 	
 	rmsd = np.sqrt(np.mean((model-truth)*(model-truth),axis=1))
 	return rmsd
+
+def compute_pca(data, n_components=None):
+	"""
+	Get the PCA decomposition according to:
+	http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
+	"""
+	from sklearn.decomposition import PCA
+	
+	pca = PCA(n_components=n_components)
+	pca.fit(data)
+	
+	return pca
+
+def get_ell(img):
+	gps = galsim.Image(img)
+	res = galsim.hsm.FindAdaptiveMom(gps)
+	g1=res.observed_shape.g1
+	g2=res.observed_shape.g2
+	return g1, g2

@@ -22,11 +22,11 @@ do_train = True
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [784, 392, 196, 98, 16]
+architecture = [256, 128, 15]
 #architecture = [256, 128, 64, 32]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
-layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
+layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 lock = multiprocessing.Lock()
 
 def worker(datas):
@@ -49,11 +49,11 @@ def worker(datas):
 	
 	datasizes.append(datasize)
 	ae = pylae.autoencoder.AutoEncoder(network_name)
-	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':3e-3, 'LINEAR':3e-4}, 
+	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':1e-2}, 
 				iterations=2000, mini_batch=100)
 
 	print 'Starting backpropagation'
-	ae.backpropagation(train_data, iterations=150, learn_rate=0.001, momentum_rate=0.9)
+	ae.backpropagation(train_data, iterations=500, learn_rate=0.001, momentum_rate=0.9)
 
 	os.system("/usr/bin/canberra-gtk-play --id='complete-media-burn'")
 
@@ -77,7 +77,7 @@ if do_train:
 	rmsd_test = []
 	
 	datass = [1., 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.07, 0.05]#np.linspace(1,0,10, endpoint=False)
-	ncpu=multiprocessing.cpu_count()
+	ncpu=7#multiprocessing.cpu_count()
 	pool = multiprocessing.Pool(processes=ncpu)
 	res = pool.map(worker, datass)
 	res = np.asarray(res)

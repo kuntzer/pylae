@@ -169,10 +169,10 @@ class AutoEncoder():
 				layer.weights -= learn_rate*momentum[jj]
 			if best_rmsd is not None:	
 				rsmd_grad = (rmsd - best_rmsd) / best_rmsd
-				print "Epoch %4d/%4d, RMS deviation = %7.4f, RMSD grad = %7.4f, early stopping is %d epoch ago" % (
+				print "Epoch %4d/%4d, RMS deviation = %7.5f, RMSD grad = %7.5f, early stopping is %d epoch ago" % (
 					epoch + 1, iterations, rmsd, rsmd_grad, iter_since_best)
 			else:
-				print "Epoch %4d/%4d, RMS deviation = %7.4f" % (
+				print "Epoch %4d/%4d, RMS deviation = %7.5f" % (
 					epoch + 1, iterations, rmsd)
 			#,
 			#if best_rmsd is not None: print (rmsd - best_rmsd) / best_rmsd
@@ -221,7 +221,7 @@ class AutoEncoder():
 		plt.legend(loc="best")
 		plt.xlabel("Epoch")
 		plt.ylabel("RMS error")
-		plt.show()
+		#plt.show()
 		
 	def save(self, fname):
 		utils.writepickle(self, fname)

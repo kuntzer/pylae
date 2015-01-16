@@ -2,7 +2,7 @@ import numpy as np
 
 class RBM():
 	def __init__(self, hidden_nodes, visible_type, hidden_type, mini_batch, iterations, 
-				max_epoch_without_improvement=30, early_stop=True):
+				max_epoch_without_improvement=50, early_stop=True):
 		"""
 		:param hidden_nodes: Number of neurons in layer
 		:param visible_type: `SIGMOID` or `LINEAR`, linear for in-/outputs
@@ -28,7 +28,7 @@ class RBM():
 		N = self.mini_batch
 		n_tot_batches = np.int(np.ceil(Nd/self.mini_batch))
 		
-		vishid = 0.01 * np.random.randn(numdims, self.hidden_nodes)
+		vishid = 0.1 * np.random.randn(numdims, self.hidden_nodes)
 		
 		hidbiases = np.zeros(self.hidden_nodes)
 		visbiases = np.zeros(numdims)

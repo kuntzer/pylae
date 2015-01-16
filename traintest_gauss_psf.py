@@ -3,9 +3,7 @@ import pylae.utils as utils
 
 import numpy as np
 import pylab as plt
-import os		
-		
-import galsim
+import os
 
 network_name = "gauss_psf_"
 
@@ -18,36 +16,38 @@ dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
 
 # Can we skip some part of the training ?
-pre_train = False
+pre_train = True
 train = pre_train
 
 # Separate into training and testing data
 datasize = np.shape(dataset)[0]
+datasize = 2000
 trainper = 0.7
 ind = np.int(trainper * datasize)
 
 train_data = dataset[0:ind]
-test_data = dataset[ind:]
-test_data = train_data
+test_data = dataset[ind:datasize]
 #test_data[0] = np.zeros_like(test_data[0])
 
 print 'Shape of the training set: ', np.shape(train_data)
 print 'Shape of the testing set: ', np.shape(test_data)
 
+
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [784, 392, 196, 98, 16]
-#architecture = [256, 128, 64, 32]
+architecture = [784, 392, 196, 98]
+architecture = [256, 16]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
-layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
+layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
+layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
 
 # Let's go
 ae = pylae.autoencoder.AutoEncoder(network_name)
 if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
-	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':3e-3, 'LINEAR':3e-4}, 
+	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':1e-2}, 
 				iterations=2000, mini_batch=100)
 	
 	# Save the resulting layers
@@ -61,7 +61,7 @@ elif not pre_train and train :
 	
 if train:
 	print 'Starting backpropagation'
-	ae.backpropagation(train_data, iterations=150, learn_rate=0.001, momentum_rate=0.9)
+	ae.backpropagation(train_data, iterations=500, learn_rate=0.1, momentum_rate=0.85)
 
 	ae.save("%sautoencoder.pkl" % network_name)
 	
@@ -92,25 +92,124 @@ ae.plot_rmsd_history()
 
 truth = np.loadtxt("data/truth-smalldev.dat", delimiter=",")
 
+# Build PCA:
+pca = utils.compute_pca(train_data, n_components=architecture[-1])
+recon_pca = pca.transform(train_data)
+recon_pca = pca.inverse_transform(recon_pca)
+rmsd_train_pca = utils.compute_rmsd(recon_pca, train_data) 
+
+recont_pca = pca.transform(test_data)
+recont_pca = pca.inverse_transform(recont_pca)
+rmsd_test_pca = utils.compute_rmsd(recont_pca, test_data) 
+
+# Compute the error on the ellipticity:
+train_ell = []
+recon_train_ell = []
+test_ell = []
+recon_test_ell = []
+train_pca_ell = []
+test_pca_ell = []
+for ii in range(ind):
+	img = train_data[ii].reshape(size,size)
+	g1, g2 = utils.get_ell(img)
+	train_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	
+	img = reconstruc[ii].reshape(size,size)
+	g1, g2 = utils.get_ell(img)
+	recon_train_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	
+	img = recon_pca[ii].reshape(size,size)
+	g1, g2 = utils.get_ell(img)
+	train_pca_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	
+	if ii >= datasize - ind: continue
+		
+	img = train_data[ii].reshape(size,size)
+	g1, g2 = utils.get_ell(img)
+	test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	
+	img = reconstructest[ii].reshape(size,size)
+	g1, g2 = utils.get_ell(img)
+	recon_test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	
+	img = recon_pca[ii].reshape(size,size)
+	g1, g2 = utils.get_ell(img)
+	test_pca_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	
+train_ell = np.asarray(train_ell)
+recon_train_ell = np.asarray(recon_train_ell)
+test_ell = np.asarray(test_ell)
+recon_test_ell = np.asarray(recon_test_ell)
+train_pca_ell = np.asarray(train_pca_ell)
+test_pca_ell = np.asarray(test_pca_ell)
+
+
+pca_ell_error = train_pca_ell[:,2] - train_ell[:,2]
+rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
+ae_ell_error = recon_train_ell[:,2] - train_ell[:,2]
+rms_ae_err = np.sqrt(ae_ell_error*ae_ell_error)
+
+tru_ell = np.sqrt(truth[0:ind,0]*truth[0:ind,0] + truth[0:ind,1]*truth[0:ind,1])
+gs_ell_error = train_ell[:,2] - tru_ell
+gs_error = np.sqrt(np.mean(gs_ell_error * gs_ell_error))
+
+pca_error = np.sqrt(np.mean(pca_ell_error * pca_ell_error))
+ae_error = np.sqrt(np.mean(ae_ell_error * ae_ell_error))
+gs_error = np.sqrt(np.mean(gs_error * gs_error))
+print 'gs error :', gs_error
+print 'ae error :', ae_error
+print 'pca error:', pca_error
+
+plt.figure()
+plt.hist(rms_pca_err, label="PCA", alpha=0.5)
+plt.hist(rms_ae_err, label="Auto-encoder", alpha=0.5)
+
+plt.axvline(pca_error, color="blue", lw=2)
+plt.axvline(ae_error, color="green", lw=2)
+plt.xlabel("RMS(Model - Data)")
+plt.legend(loc="best")
+plt.grid()
+
+#########################################################################
+
+pca_ell_error = train_pca_ell[:,2] - tru_ell
+rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
+ae_ell_error = recon_train_ell[:,2] - tru_ell
+rms_ae_err = np.sqrt(ae_ell_error*ae_ell_error)
+
+pca_error = np.sqrt(np.mean(pca_ell_error * pca_ell_error))
+ae_error = np.sqrt(np.mean(ae_ell_error * ae_ell_error))
+print 'ae absolute error :', ae_error
+print 'pca absolute error:', pca_error
+
+plt.figure()
+plt.hist(rms_pca_err, label="PCA", alpha=0.5)
+plt.hist(rms_ae_err, label="Auto-encoder", alpha=0.5)
+
+plt.axvline(pca_error, color="blue", lw=2)
+plt.axvline(ae_error, color="green", lw=2)
+plt.xlabel("RMS(Model - True)")
+plt.legend(loc="best")
+plt.grid()
+plt.show()
+
+
 # Show the original test image, the reconstruction and the residues for the first 10 cases
 for ii in range(10):
 	img = test_data[ii].reshape(size,size)
 	recon = reconstructest[ii].reshape(size,size)
+	recont_pca_img = recont_pca[ii].reshape(size,size)
 
 	try:
-		gps = galsim.Image(img)
-		res = galsim.hsm.FindAdaptiveMom(gps)
-		dg1=res.observed_shape.g1
-		dg2=res.observed_shape.g2
+		dg1, dg2 = utils.get_ell(img)
 	except :
 		dg1 = 20
 		dg2 = 20
-		
-	gps = galsim.Image(recon)
-	res = galsim.hsm.FindAdaptiveMom(gps)
-	rg1=res.observed_shape.g1
-	rg2=res.observed_shape.g2
 
+	rg1, rg2 = utils.get_ell(recon)
+
+	pg1, pg2 = utils.get_ell(recont_pca_img)
+	
 	tg1, tg2 = truth[ii,0:2]
 	
 	plt.figure()
@@ -118,13 +217,18 @@ for ii in range(10):
 	plt.subplot(1, 3, 1)
 	plt.imshow((img), interpolation="nearest")
 	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\n...........\ntg1 = %1.4f\ntg2 = %1.4f" % (dg1, dg2, tg1, tg2), va="top")
+	plt.title("Data")
 	plt.subplot(1, 3, 2)
 	plt.imshow((recon), interpolation="nearest")
 	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f" % (rg1, rg2), va="top")
 	#plt.colorbar()
+	plt.title("Auto-encoder")
 	plt.subplot(1, 3, 3)
-	plt.imshow((img - recon), interpolation="nearest")
-	plt.colorbar()
+	#plt.imshow((img - recon), interpolation="nearest")
+	plt.imshow(recont_pca_img, interpolation="nearest")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f" % (pg1, pg2), va="top")
+	#plt.colorbar()
+	plt.title("PCA")
 	
 	
 	"""
