@@ -180,7 +180,7 @@ class AutoEncoder():
 			rmsd_logger.append(rmsd)
 			
 			if early_stop:
-				if best_rmsd is None or rsmd_grad < -1.4e-3 :
+				if best_rmsd is None or rsmd_grad < -2e-3 :
 					if best_rmsd is None:
 						best_weights = []
 						for layer in self.layers :

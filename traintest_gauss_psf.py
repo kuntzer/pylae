@@ -16,7 +16,7 @@ dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
 
 # Can we skip some part of the training ?
-pre_train = True
+pre_train = False
 train = pre_train
 
 # Separate into training and testing data
@@ -124,7 +124,7 @@ for ii in range(ind):
 	
 	if ii >= datasize - ind: continue
 		
-	img = train_data[ii].reshape(size,size)
+	img = test_data[ii].reshape(size,size)
 	g1, g2 = utils.get_ell(img)
 	test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
@@ -132,7 +132,7 @@ for ii in range(ind):
 	g1, g2 = utils.get_ell(img)
 	recon_test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
-	img = recon_pca[ii].reshape(size,size)
+	img = recont_pca[ii].reshape(size,size)
 	g1, g2 = utils.get_ell(img)
 	test_pca_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
@@ -144,9 +144,9 @@ train_pca_ell = np.asarray(train_pca_ell)
 test_pca_ell = np.asarray(test_pca_ell)
 
 
-pca_ell_error = train_pca_ell[:,2] - train_ell[:,2]
+pca_ell_error = test_pca_ell[:,2] - test_ell[:,2]
 rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
-ae_ell_error = recon_train_ell[:,2] - train_ell[:,2]
+ae_ell_error = recon_test_ell[:,2] - test_ell[:,2]
 rms_ae_err = np.sqrt(ae_ell_error*ae_ell_error)
 
 tru_ell = np.sqrt(truth[0:ind,0]*truth[0:ind,0] + truth[0:ind,1]*truth[0:ind,1])
@@ -156,6 +156,7 @@ gs_error = np.sqrt(np.mean(gs_ell_error * gs_ell_error))
 pca_error = np.sqrt(np.mean(pca_ell_error * pca_ell_error))
 ae_error = np.sqrt(np.mean(ae_ell_error * ae_ell_error))
 gs_error = np.sqrt(np.mean(gs_error * gs_error))
+print "ERROR ON TEST DATA"
 print 'gs error :', gs_error
 print 'ae error :', ae_error
 print 'pca error:', pca_error
@@ -206,42 +207,44 @@ for ii in range(10):
 		dg1 = 20
 		dg2 = 20
 
-	rg1, rg2 = utils.get_ell(recon)
+	rg1, rg2, rg = recon_test_ell[ii]
 
 	pg1, pg2 = utils.get_ell(recont_pca_img)
+	pg1, pg2, pg = test_pca_ell[ii]
 	
-	tg1, tg2 = truth[ii,0:2]
+	tg1, tg2 = truth[ind+ii,0:2]
 	
 	plt.figure()
 	
 	plt.subplot(1, 3, 1)
 	plt.imshow((img), interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\n...........\ntg1 = %1.4f\ntg2 = %1.4f" % (dg1, dg2, tg1, tg2), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\n...........\ntg1 = %1.4f\ntg2 = %1.4f\ng=%1.4f" % (
+		dg1, dg2, np.hypot(dg1, dg2), tg1, tg2, np.hypot(tg1, tg2)), va="top")
 	plt.title("Data")
 	plt.subplot(1, 3, 2)
 	plt.imshow((recon), interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f" % (rg1, rg2), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f" % (rg1, rg2, np.hypot(rg1, rg2)), va="top")
 	#plt.colorbar()
 	plt.title("Auto-encoder")
 	plt.subplot(1, 3, 3)
 	#plt.imshow((img - recon), interpolation="nearest")
 	plt.imshow(recont_pca_img, interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f" % (pg1, pg2), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng = %1.4f" % (pg1, pg2, np.hypot(pg1, pg2)), va="top")
 	#plt.colorbar()
 	plt.title("PCA")
 	
-	
 	"""
-	plt.colorbar()
-	plt.subplot(2, 3, 4)
-	plt.imshow((corr), interpolation="nearest")
+	#plt.subplot(2, 3, 4)
+	#plt.imshow((corr), interpolation="nearest")
 	#plt.colorbar()
 	plt.subplot(2, 3, 5)
-	plt.imshow((recon + corr), interpolation="nearest")
-	plt.colorbar()
+	plt.title("Residues AE")
+	plt.imshow((recon - img), interpolation="nearest")
+	#plt.colorbar()
 	plt.subplot(2, 3, 6)
-	plt.imshow((img - corr - recon), interpolation="nearest")
-	plt.colorbar()
+	plt.title("Residues PCA")
+	plt.imshow((recont_pca_img-img), interpolation="nearest")
+	#plt.colorbar()
 	plt.xlabel("RMS Deviation : %1.4f" % (rmsd_test[ii]))
 	"""
 plt.show()

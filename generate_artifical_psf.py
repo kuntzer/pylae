@@ -23,13 +23,13 @@ psf_re = 0.5 # arcsec
 psf_beta = 5 
 
 # n x n pixels
-image_size = 28 
+image_size = 32 
 
 # Parameter preview ?
 parampre = False
 
 # Noise level
-noise = 0.#0.0005
+noise = 0.#0002
 
 ###################################################################################################
 # Initialization
