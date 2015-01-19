@@ -10,14 +10,14 @@ network_name = "gauss_psf_"
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
 #dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
-dataset = np.loadtxt("data/psfs-smalldev-noisy.dat", delimiter=",")
+dataset = np.loadtxt("data/psfs-smalldev.dat", delimiter=",")
 
 dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
 
 # Can we skip some part of the training ?
-pre_train = True
-train = pre_train
+pre_train = False
+train = True
 
 # Separate into training and testing data
 datasize = np.shape(dataset)[0]
@@ -47,7 +47,12 @@ ae = pylae.autoencoder.AutoEncoder(network_name)
 if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
-	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':0.3/10.}, 
+	# For noisy data:
+	# learn_rate={'SIGMOID':0.1, 'LINEAR':0.3/10.}
+	# For noisyless data
+	learn_rate={'SIGMOID':0.0034, 'LINEAR':0.0034/10.}
+	
+	ae.pre_train(train_data, architecture, layers_type, learn_rate=learn_rate, 
 				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.001)
 	
 	# Save the resulting layers
@@ -58,6 +63,7 @@ elif not pre_train and train :
 	# An autoencoder instance was created some lines earlier, preparing the other half of the 
 	# network based on layers loaded from the pickle file. 
 	ae.set_autencoder(rbms)
+	ae.is_pretrained = True
 	
 if train:
 	print 'Starting backpropagation'

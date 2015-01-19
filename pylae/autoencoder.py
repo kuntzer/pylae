@@ -18,6 +18,8 @@ class AutoEncoder():
 		:param encoder: A list of pre-trained RBMs in the encoder order.
 		:type list:
 		"""
+		self.rbms = encoder
+		
 		encoder = copy.deepcopy(encoder)
 		decoder = copy.deepcopy(encoder)
 		decoder = decoder[::-1]
@@ -78,7 +80,6 @@ class AutoEncoder():
 	
 			rbms.append(layer)
 		
-		self.rbms = rbms
 		self.is_pretrained = True
 		self.set_autencoder(rbms)
 	
@@ -111,12 +112,15 @@ class AutoEncoder():
 	def backpropagation(self, data, iterations=500, learn_rate=0.13, momentum_rate=0.83, 
 					max_epoch_without_improvement=30, early_stop=True):
 		
+		regularisation = 0.#0001
+		
 		if not self.is_pretrained: 
 			raise RuntimeError("The autoencoder is not pre-trained.")
 
 		
 		N = np.shape(data)[0]
 		momentum = [None] * len(self.layers)
+		momentum_bias = [None] * len(self.layers)
 		
 		assert N > 0
 		rmsd_logger = []
@@ -138,13 +142,15 @@ class AutoEncoder():
 				layer = self.layers[jj]
 				if layer.hidden_type == "SIGMOID" :
 					# later part is error * gradient of cost function
-					accum_deriv = accum_deriv * (1.0 - layer.output) * layer.output 
+					accum_deriv = accum_deriv * (1.0 - layer.output) * layer.output
+					grad_bias = np.mean(accum_deriv, axis=0)# dJ/dB is error only		
 				elif layer.hidden_type == "LINEAR" :
-					pass # nothing to do
+					grad_bias = np.mean(layer.output - layer.hidden_biases, axis=0)/N
 				else :
 					raise ValueError("Type of layer not recognised")
 
-				grad = np.dot(layer.input.T, accum_deriv)/N #dz/dw
+				grad = np.dot(layer.input.T, accum_deriv)/N  + regularisation * layer.weights # dz/dW partial derivative for weights
+					
 				
 				if np.any(grad) > 1e9 or np.any(grad) is np.nan :
 					raise ValueError("Weights have blown to infinite! \
@@ -152,8 +158,8 @@ class AutoEncoder():
 					
 				# no point accumulating gradients for the first layer
 				if jj > 0:
-					accum_deriv = np.dot(accum_deriv, layer.weights.T) # dz/dW partial derivative for weights
-
+					accum_deriv = np.dot(accum_deriv, layer.weights.T) 
+					
 			#TODO: Regularisation ?
 			#HERE
 			# SEE http://ufldl.stanford.edu/wiki/index.php/Backpropagation_Algorithm
@@ -162,8 +168,15 @@ class AutoEncoder():
 					momentum[jj] = grad
 				else :
 					momentum[jj] = momentum_rate*momentum[jj] + grad
+				
+				if momentum_bias[jj] is None:
+					momentum_bias[jj] = grad_bias
+				else :
+					momentum_bias[jj] = momentum_bias[jj] + grad_bias
 
 				layer.weights -= learn_rate*momentum[jj]
+				layer.hidden_biases -= learn_rate*momentum_bias[jj]
+				#layer.
 			if best_rmsd is not None:	
 				rsmd_grad = (rmsd - best_rmsd) / best_rmsd
 				print "Epoch %4d/%4d, RMS deviation = %7.5f, RMSD grad = %7.5f, early stopping is %d epoch ago" % (
@@ -214,7 +227,7 @@ class AutoEncoder():
 			for layer in self.rbms :
 				plt.plot(np.arange(np.size(layer.rmsd_history)), layer.rmsd_history, lw=2, 
 						label="%d nodes" % layer.hidden_nodes)
-		plt.plot(np.arange(np.size(self.rmsd_history)), self.rmsd_history, lw=2, label="Backprop")	
+		plt.semilogy(np.arange(np.size(self.rmsd_history)), self.rmsd_history, lw=2, label="Backprop")	
 		plt.grid()
 		plt.legend(loc="best")
 		plt.xlabel("Epoch")
