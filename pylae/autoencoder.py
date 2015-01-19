@@ -44,9 +44,10 @@ class AutoEncoder():
 			
 		return data
 	
-	def pre_train(self, data, architecture, layers_type, learn_rate={'SIGMOID':3e-3, 'LINEAR':3e-4},
-			initialmomentum=0.5, finalmomentum=0.9, iterations=2000, mini_batch=100,
-			weightcost=0.0002, max_epoch_without_improvement=10, early_stop=True):
+	def pre_train(self, data, architecture, layers_type, learn_rate={'SIGMOID':3.4e-3, 'LINEAR':3.4e-4},
+			initialmomentum=0.53, finalmomentum=0.93, iterations=2000, mini_batch=100,
+			regularisation=0.001, max_epoch_without_improvement=10, early_stop=True):
+
 		"""
 		
 		"""
@@ -80,16 +81,6 @@ class AutoEncoder():
 		self.rbms = rbms
 		self.is_pretrained = True
 		self.set_autencoder(rbms)
-		
-	def train(self, data, learn_rate=1e-3, momentum=0.9, iterations=500):
-		
-		if not self.is_pretrained: 
-			raise RuntimeError("The autoencoder is not pre-trained.")
-		
-		
-		
-		self.is_trained = True 
-		
 	
 	def encode(self, data):
 		"""
@@ -117,8 +108,13 @@ class AutoEncoder():
 			
 		return data
 	
-	def backpropagation(self, data, iterations, learn_rate, momentum_rate, 
+	def backpropagation(self, data, iterations=500, learn_rate=0.13, momentum_rate=0.83, 
 					max_epoch_without_improvement=10, early_stop=True):
+		
+		if not self.is_pretrained: 
+			raise RuntimeError("The autoencoder is not pre-trained.")
+
+		
 		N = np.shape(data)[0]
 		momentum = [None] * len(self.layers)
 		
@@ -206,8 +202,9 @@ class AutoEncoder():
 			self.rmsd_history = rmsd_history[:-1*iter_since_best]
 		else :
 			self.rmsd_history = rmsd_history
+					
+		self.is_trained = True
 
-		
 	def plot_rmsd_history(self):
 		import pylab as plt
 				

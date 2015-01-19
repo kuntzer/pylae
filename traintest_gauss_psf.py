@@ -10,13 +10,13 @@ network_name = "gauss_psf_"
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
 #dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
-dataset = np.loadtxt("data/psfs-smalldev.dat", delimiter=",")
+dataset = np.loadtxt("data/psfs-smalldev-noisy.dat", delimiter=",")
 
 dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
 
 # Can we skip some part of the training ?
-pre_train = False
+pre_train = True
 train = pre_train
 
 # Separate into training and testing data
@@ -36,7 +36,7 @@ print 'Shape of the testing set: ', np.shape(test_data)
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
 architecture = [784, 392, 196, 98]
-architecture = [256, 16]
+architecture = [256, 15]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
@@ -47,8 +47,8 @@ ae = pylae.autoencoder.AutoEncoder(network_name)
 if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
-	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':1e-2}, 
-				iterations=2000, mini_batch=100)
+	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':0.3/10.}, 
+				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.001)
 	
 	# Save the resulting layers
 	utils.writepickle(ae.rbms, "%srbms.pkl" % network_name)
@@ -61,7 +61,7 @@ elif not pre_train and train :
 	
 if train:
 	print 'Starting backpropagation'
-	ae.backpropagation(train_data, iterations=500, learn_rate=0.1, momentum_rate=0.85)
+	ae.backpropagation(train_data, iterations=1000, learn_rate=0.13, momentum_rate=0.83)
 
 	ae.save("%sautoencoder.pkl" % network_name)
 	
@@ -143,7 +143,24 @@ recon_test_ell = np.asarray(recon_test_ell)
 train_pca_ell = np.asarray(train_pca_ell)
 test_pca_ell = np.asarray(test_pca_ell)
 
+print "ERROR ON TRAIN DATA"
+pca_ell_error = train_pca_ell[:,2] - train_ell[:,2]
+rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
+ae_ell_error = recon_train_ell[:,2] - train_ell[:,2]
+rms_ae_err = np.sqrt(ae_ell_error*ae_ell_error)
 
+tru_ell = np.sqrt(truth[0:ind,0]*truth[0:ind,0] + truth[0:ind,1]*truth[0:ind,1])
+gs_ell_error = train_ell[:,2] - tru_ell
+gs_error = np.sqrt(np.mean(gs_ell_error * gs_ell_error))
+
+pca_error = np.sqrt(np.mean(pca_ell_error * pca_ell_error))
+ae_error = np.sqrt(np.mean(ae_ell_error * ae_ell_error))
+gs_error = np.sqrt(np.mean(gs_error * gs_error))
+print 'gs error :', gs_error
+print 'ae error :', ae_error
+print 'pca error:', pca_error
+
+print "ERROR ON TEST DATA"
 pca_ell_error = test_pca_ell[:,2] - test_ell[:,2]
 rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
 ae_ell_error = recon_test_ell[:,2] - test_ell[:,2]
@@ -156,7 +173,6 @@ gs_error = np.sqrt(np.mean(gs_ell_error * gs_ell_error))
 pca_error = np.sqrt(np.mean(pca_ell_error * pca_ell_error))
 ae_error = np.sqrt(np.mean(ae_ell_error * ae_ell_error))
 gs_error = np.sqrt(np.mean(gs_error * gs_error))
-print "ERROR ON TEST DATA"
 print 'gs error :', gs_error
 print 'ae error :', ae_error
 print 'pca error:', pca_error

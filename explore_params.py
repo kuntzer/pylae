@@ -6,11 +6,11 @@ import multiprocessing
 import pylab as plt
 ###################################################################################################
 
-def train(train_data, learnr, layers_type):
+def train(train_data, params, layers_type):
 	ae = pylae.autoencoder.AutoEncoder()
-	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':learnr, 'LINEAR':learnr/10.}, 
-				iterations=2000, mini_batch=100)
-	ae.backpropagation(train_data, iterations=500, learn_rate=0.1, momentum_rate=0.85)
+	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.0034, 'LINEAR':0.0034/10.}, 
+				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.001)
+	ae.backpropagation(train_data, iterations=1000, learn_rate=0.13, momentum_rate=0.83)
 	
 	return ae
 
@@ -49,14 +49,18 @@ def cost(ae, test_data):
 	return ae_error
 
 def worker(params):
-	
+	architecture = params
 	layers_type = ["SIGMOID"] * len(architecture) + ["LINEAR"]
 	try:
 		ae = train(train_data, params, layers_type)
 	except:
 		return -0.001
 
-	return cost(ae, test_data)
+	try:
+		c = cost(ae, test_data)
+	except IndexError :
+		c = -0.0001
+	return c
 
 ###################################################################################################
 
@@ -75,14 +79,30 @@ nb_params = 32
 
 explore = True
 
-#min_nb_neuron = 15
+min_nb_neuron = 15
 #architectures=[[np.int(a), min_nb_neuron] for a in np.linspace(2*min_nb_neuron, 500, nb_params)]
 
 architecture = [512, 16]
-params = np.logspace(-5,-0.045, nb_params)
+#params = np.logspace(-6,-0.09, nb_params)
+#params = np.linspace(0.001,1., nb_params)
+
+architectures = []
+nnn = np.linspace(0, 784-min_nb_neuron, nb_params)
+nl = [1,2,3]
+for nn in nnn:
+	for l in nl:
+		max = min_nb_neuron+nn
+		min = min_nb_neuron
+		
+		aa = np.linspace(min, max, l+1)
+		archi = []#[np.int(max)]
+		for a in aa[::-1]:
+			archi += [np.int(a)]
+		architectures.append(archi)
+params = architectures
 
 if explore:
-	ncpu=multiprocessing.cpu_count()
+	ncpu=7#multiprocessing.cpu_count()
 	pool = multiprocessing.Pool(processes=ncpu)
 	
 	res = pool.map(worker, params)
@@ -93,12 +113,12 @@ if explore:
 		nn.append(ii)
 		score.append(res[ii])
 	
-	utils.writepickle([nn, score], "%sdiagnostic_explore_params.pkl")
+	utils.writepickle([nn, score], "diagnostic_explore_params.pkl")
 	
 	pool.close()
 	pool.join()
 else:
-	nn, score = utils.readpickle([nn, score], "%sdiagnostic_explore_params.pkl")
+	nn, score = utils.readpickle([nn, score], "diagnostic_explore_params.pkl")
 
 plt.figure()
 plt.plot(nn, score, lw=2)
