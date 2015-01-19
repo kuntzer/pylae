@@ -7,6 +7,8 @@ import pylab as plt
 ###################################################################################################
 
 def train(train_data, params, layers_type):
+	architecture = params
+	print "Starting", architecture
 	ae = pylae.autoencoder.AutoEncoder()
 	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.0034, 'LINEAR':0.0034/10.}, 
 				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.001)
@@ -51,10 +53,8 @@ def cost(ae, test_data):
 def worker(params):
 	architecture = params
 	layers_type = ["SIGMOID"] * len(architecture) + ["LINEAR"]
-	try:
-		ae = train(train_data, params, layers_type)
-	except:
-		return -0.001
+	
+	ae = train(train_data, params, layers_type)
 
 	try:
 		c = cost(ae, test_data)
@@ -82,19 +82,19 @@ explore = True
 min_nb_neuron = 15
 #architectures=[[np.int(a), min_nb_neuron] for a in np.linspace(2*min_nb_neuron, 500, nb_params)]
 
-architecture = [512, 16]
+#architecture = [512, 16]
 #params = np.logspace(-6,-0.09, nb_params)
 #params = np.linspace(0.001,1., nb_params)
 
 architectures = []
-nnn = np.linspace(0, 784-min_nb_neuron, nb_params)
+nnn = np.linspace(min_nb_neuron, 784, nb_params)
 nl = [1,2,3]
 for nn in nnn:
 	for l in nl:
-		max = min_nb_neuron+nn
-		min = min_nb_neuron
+		maxn = nn
+		minn = min_nb_neuron
 		
-		aa = np.linspace(min, max, l+1)
+		aa = np.linspace(minn, maxn, l+1)
 		archi = []#[np.int(max)]
 		for a in aa[::-1]:
 			archi += [np.int(a)]
@@ -102,13 +102,14 @@ for nn in nnn:
 params = architectures
 
 if explore:
-	ncpu=7#multiprocessing.cpu_count()
+	ncpu=multiprocessing.cpu_count()
 	pool = multiprocessing.Pool(processes=ncpu)
 	
 	res = pool.map(worker, params)
 	res = np.asarray(res)
 	nn = []
 	score = []
+	
 	for ii in range(len(params)):
 		nn.append(ii)
 		score.append(res[ii])

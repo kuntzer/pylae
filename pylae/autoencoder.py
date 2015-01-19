@@ -46,7 +46,7 @@ class AutoEncoder():
 	
 	def pre_train(self, data, architecture, layers_type, learn_rate={'SIGMOID':3.4e-3, 'LINEAR':3.4e-4},
 			initialmomentum=0.53, finalmomentum=0.93, iterations=2000, mini_batch=100,
-			regularisation=0.001, max_epoch_without_improvement=10, early_stop=True):
+			regularisation=0.001, max_epoch_without_improvement=30, early_stop=True):
 
 		"""
 		
@@ -57,7 +57,7 @@ class AutoEncoder():
 		# Archiving the configuration
 		rbms_config = {'architecture':architecture, 'layers_type':layers_type, 'learn_rate':learn_rate,
 				'initialmomentum':initialmomentum, 'finalmomentum':finalmomentum,
-				'weightcost':weightcost, 'iterations':iterations, 
+				'regularisation':regularisation, 'iterations':iterations, 
 				'max_epoch_without_improvement':max_epoch_without_improvement,
 				'early_stop':early_stop}
 		self.rbms_config = rbms_config
@@ -73,7 +73,7 @@ class AutoEncoder():
 			layer.train(data, learn_rate_w=learnr, learn_rate_visb=learnr, 
 					learn_rate_hidb=learnr, initialmomentum=initialmomentum, 
 					finalmomentum=finalmomentum,
-					weightcost=weightcost)
+					regularisation=regularisation)
 			data = layer.feedforward(data)
 	
 			rbms.append(layer)
@@ -109,7 +109,7 @@ class AutoEncoder():
 		return data
 	
 	def backpropagation(self, data, iterations=500, learn_rate=0.13, momentum_rate=0.83, 
-					max_epoch_without_improvement=10, early_stop=True):
+					max_epoch_without_improvement=30, early_stop=True):
 		
 		if not self.is_pretrained: 
 			raise RuntimeError("The autoencoder is not pre-trained.")
@@ -126,15 +126,12 @@ class AutoEncoder():
 		
 		for epoch in range(iterations) :
 			X = self.feedforward(data)
-	
-			# Reconstruction error
-			err = data - X
-			rmsd = np.sqrt(np.mean(err*err))
 			
 			# Start backpropagation
 			
 			# Initialise the accumulated derivating using square error E = 0.5*(T-Y)^2
 			accum_deriv =  -(data - X); # dE/dz
+			rmsd = np.sqrt(np.mean(accum_deriv*accum_deriv))
 			
 			# Backpropagate through the top to bottom
 			for jj in range(self.mid * 2 - 1, -1, -1):
@@ -155,8 +152,12 @@ class AutoEncoder():
 					
 				# no point accumulating gradients for the first layer
 				if jj > 0:
-					accum_deriv = np.dot(accum_deriv, layer.weights.T) # dz/.. = weights
+					accum_deriv = np.dot(accum_deriv, layer.weights.T) # dz/dW partial derivative for weights
 
+			#TODO: Regularisation ?
+			#HERE
+			# SEE http://ufldl.stanford.edu/wiki/index.php/Backpropagation_Algorithm
+			# ARE WE REALLY UPDATING THE BIAS HERE ? NOT SO SURE
 				if momentum[jj] is None:
 					momentum[jj] = grad
 				else :
