@@ -74,8 +74,7 @@ class AutoEncoder():
 						early_stop=early_stop)
 			layer.train(data, learn_rate_w=learnr, learn_rate_visb=learnr, 
 					learn_rate_hidb=learnr, initialmomentum=initialmomentum, 
-					finalmomentum=finalmomentum,
-					regularisation=regularisation)
+					finalmomentum=finalmomentum, weightcost=regularisation)
 			data = layer.feedforward(data)
 	
 			rbms.append(layer)
@@ -128,10 +127,16 @@ class AutoEncoder():
 		best_rmsd = None
 		iter_since_best = 0
 		
+		momentum_rate_save = momentum_rate
+		
 		for epoch in range(iterations) :
 			X = self.feedforward(data)
 			
 			# Start backpropagation
+			if epoch > 15:
+				momentum_rate = momentum_rate_save
+			else:
+				momentum_rate = 0.5
 			
 			# Initialise the accumulated derivating using square error E = 0.5*(T-Y)^2
 			accum_deriv =  -(data - X); # dE/dz
@@ -143,13 +148,13 @@ class AutoEncoder():
 				if layer.hidden_type == "SIGMOID" :
 					# later part is error * gradient of cost function
 					accum_deriv = accum_deriv * (1.0 - layer.output) * layer.output
-					grad_bias = np.mean(accum_deriv, axis=0)# dJ/dB is error only		
+					grad_bias = np.mean(accum_deriv, axis=0)# dJ/dB is error only, nut regularisation for biases		
 				elif layer.hidden_type == "LINEAR" :
 					grad_bias = np.mean(layer.output - layer.hidden_biases, axis=0)/N
 				else :
 					raise ValueError("Type of layer not recognised")
 
-				grad = np.dot(layer.input.T, accum_deriv)/N  + regularisation * layer.weights # dz/dW partial derivative for weights
+				grad = np.dot(layer.input.T, accum_deriv)/N + regularisation * layer.weights # dz/dW partial derivative for weights
 					
 				
 				if np.any(grad) > 1e9 or np.any(grad) is np.nan :
@@ -159,11 +164,7 @@ class AutoEncoder():
 				# no point accumulating gradients for the first layer
 				if jj > 0:
 					accum_deriv = np.dot(accum_deriv, layer.weights.T) 
-					
-			#TODO: Regularisation ?
-			#HERE
-			# SEE http://ufldl.stanford.edu/wiki/index.php/Backpropagation_Algorithm
-			# ARE WE REALLY UPDATING THE BIAS HERE ? NOT SO SURE
+
 				if momentum[jj] is None:
 					momentum[jj] = grad
 				else :
@@ -172,7 +173,7 @@ class AutoEncoder():
 				if momentum_bias[jj] is None:
 					momentum_bias[jj] = grad_bias
 				else :
-					momentum_bias[jj] = momentum_bias[jj] + grad_bias
+					momentum_bias[jj] = momentum_rate*momentum_bias[jj] + grad_bias
 
 				layer.weights -= learn_rate*momentum[jj]
 				layer.hidden_biases -= learn_rate*momentum_bias[jj]

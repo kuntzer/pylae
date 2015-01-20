@@ -22,7 +22,7 @@ class RBM():
 		self.early_stop = early_stop
 	
 	def train(self, data_train, initialmomentum, finalmomentum, learn_rate_w,
-			learn_rate_visb, learn_rate_hidb, regularisation):
+			learn_rate_visb, learn_rate_hidb, weightcost):
 
 		Nd, numdims = np.shape(data_train)
 		N = self.mini_batch
@@ -117,7 +117,7 @@ class RBM():
 					
 				## UPDATE WEIGHTS AND BIASES ############################################
 				vishidinc = momentum * vishidinc + learn_rate_w * \
-					((pos_prods - neg_prods)/N - regularisation * vishid)
+					((pos_prods - neg_prods)/N - weightcost * vishid)
 				visbiasinc = momentum * visbiasinc + learn_rate_visb/N * (pos_visact - neg_visact)
 				hidbiasinc = momentum * hidbiasinc + learn_rate_hidb/N * (pos_hidact - neg_hidact)
 				

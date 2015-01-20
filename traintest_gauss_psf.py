@@ -36,7 +36,7 @@ print 'Shape of the testing set: ', np.shape(test_data)
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
 architecture = [784, 392, 196, 98]
-architecture = [256, 15]
+architecture = [759, 15]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
@@ -48,7 +48,7 @@ if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
 	# For noisy data:
-	# learn_rate={'SIGMOID':0.1, 'LINEAR':0.3/10.}
+	#learn_rate={'SIGMOID':0.1, 'LINEAR':0.3/10.}
 	# For noisyless data
 	learn_rate={'SIGMOID':0.0034, 'LINEAR':0.0034/10.}
 	
