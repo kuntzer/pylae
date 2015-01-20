@@ -10,7 +10,7 @@ import pylab as plt
 import os
 
 outdir = 'data'
-run_name = 'smalldev-noisy'
+run_name = 'smalldev-bitnoisy'
 
 # Number of PSFs
 n = 3000
@@ -29,7 +29,7 @@ image_size = 32
 parampre = False
 
 # Noise level
-noise = 0.0002
+noise = 0.00002
 
 ###################################################################################################
 # Initialization

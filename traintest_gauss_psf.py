@@ -5,23 +5,26 @@ import numpy as np
 import pylab as plt
 import os
 
-network_name = "gauss_psf_"
-
+run_name = 'noisy'
+network_name = run_name
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
 #dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
-dataset = np.loadtxt("data/psfs-smalldev-noisy.dat", delimiter=",")
+dataset = np.loadtxt("data/psfs-smalldev-%s.dat" % run_name, delimiter=",")
 
 dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
 
-truthset = np.loadtxt("data/psfs-true-smalldev-noisy.dat", delimiter=",")
+truthset = np.loadtxt("data/psfs-true-smalldev-%s.dat" % run_name, delimiter=",")
 truthset, _, _ = utils.normalise(truthset)
 
 
 # Can we skip some part of the training ?
 pre_train = False
-train = True
+train = False
+
+# Add the mean of the residues ?
+do_corr = True
 
 # Separate into training and testing data
 datasize = np.shape(dataset)[0]
@@ -82,10 +85,14 @@ reconstruc = ae.feedforward(train_data)
 reconstructest = ae.feedforward(test_data)
 
 # Compute the RMSD error for the training set
-rmsd_train = utils.compute_rmsd(reconstruc, train_true)
-recon_avg = np.sum(train_data - reconstruc, axis=0)
-recon_avg /= np.shape(train_data)[0]
+recon_avg = np.mean(train_data - reconstruc, axis=0)
+#recon_avg /= np.shape(train_data)[0]
+if do_corr:
+	reconstruc += recon_avg
+	reconstructest += recon_avg
+
 corr = recon_avg.reshape(size,size)
+rmsd_train = utils.compute_rmsd(reconstruc, train_true)
 
 # Compute the RMSD error for the test set
 rmsd_test = utils.compute_rmsd(reconstructest, test_true)
@@ -130,7 +137,7 @@ for ii in range(ind):
 	g1, g2 = utils.get_ell(img)
 	train_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
-	img = reconstruc[ii].reshape(size,size)# + corr
+	img = reconstruc[ii].reshape(size,size) + corr
 	g1, g2 = utils.get_ell(img)
 	recon_train_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	noise_train.append(utils.skystats(img)['mad'])
@@ -145,7 +152,7 @@ for ii in range(ind):
 	g1, g2 = utils.get_ell(img)
 	test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
-	img = reconstructest[ii].reshape(size,size)# + corr
+	img = reconstructest[ii].reshape(size,size) + corr
 	g1, g2 = utils.get_ell(img)
 	recon_test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	noise_test.append(utils.skystats(img)['mad'])
@@ -203,6 +210,36 @@ plt.figure()
 pylae.plots.hist(noise_train, noise_test, noise_test_pca, xlabel="Noise")
 
 ae.plot_rmsd_history()
+
+plt.figure()
+plt.scatter(test_pca_ell[:,2], rmsd_test_pca, label="PCA", color="b")
+plt.scatter(recon_test_ell[:,2], rmsd_test, label="Auto-encoder", color="g")
+pylae.plots.hspans(rmsd_test, "g")
+pylae.plots.hspans(rmsd_test_pca, "b")
+
+plt.xlim([0, 1.02*np.amax([np.amax(recon_test_ell[:,2]), np.amax(test_pca_ell[:,2])])])
+plt.ylim([0.98*np.amin([np.amin(rmsd_test), np.amin(rmsd_test_pca)]),\
+	1.02*np.amax([np.amax(rmsd_test), np.amax(rmsd_test_pca)])])
+
+plt.xlabel("e of reconstructed data")
+plt.ylabel("RMSD error")
+plt.legend(loc="best")
+plt.grid()
+
+plt.figure()
+plt.scatter(test_pca_ell[:,2], noise_test_pca, label="PCA", color="b")
+plt.scatter(test_pca_ell[:,2], noise_test, label="Auto-encoder", color="g")
+pylae.plots.hspans(noise_test, "g")
+pylae.plots.hspans(noise_test_pca, "b")
+
+plt.xlim([0, 1.02*np.amax([np.amax(recon_test_ell[:,2]), np.amax(test_pca_ell[:,2])])])
+plt.ylim([0.98*np.amin([np.amin(noise_test), np.amin(noise_test_pca)]),\
+	1.02*np.amax([np.amax(noise_test), np.amax(noise_test_pca)])])
+
+plt.xlabel("e of reconstructed data")
+plt.ylabel("Noise")
+plt.legend(loc="best")
+plt.grid()
 
 plt.figure()
 plt.hist(rms_pca_err, label="PCA", alpha=0.5)

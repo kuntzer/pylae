@@ -109,9 +109,7 @@ class AutoEncoder():
 		return data
 	
 	def backpropagation(self, data, iterations=500, learn_rate=0.13, momentum_rate=0.83, 
-					max_epoch_without_improvement=30, early_stop=True):
-		
-		regularisation = 0.#0001
+					max_epoch_without_improvement=30, regularisation = 0., early_stop=True):
 		
 		if not self.is_pretrained: 
 			raise RuntimeError("The autoencoder is not pre-trained.")
