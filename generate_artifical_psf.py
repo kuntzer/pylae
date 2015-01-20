@@ -29,7 +29,7 @@ image_size = 32
 parampre = False
 
 # Noise level
-noise = 0.0005
+noise = 0.0002
 
 ###################################################################################################
 # Initialization
@@ -56,6 +56,7 @@ if parampre :
 
 psffname = "%s/psfs-%s.dat" % (outdir, run_name)
 truthfname = "%s/truth-%s.dat" % (outdir, run_name)
+psftruefname = "%s/psfs-true-%s.dat" % (outdir, run_name)
 
 if (os.path.exists(psffname) or os.path.exists(truthfname))  and False :
 	print 'Either of the following files exists :'
@@ -64,6 +65,7 @@ if (os.path.exists(psffname) or os.path.exists(truthfname))  and False :
 	raise IOError("Files already exist")
 
 output = np.zeros([n, image_size*image_size])
+output_t = np.zeros_like(output)
 truth = np.zeros([n, 3])
 
 ###################################################################################################
@@ -83,6 +85,7 @@ for i in range(n):
 	image = galsim.ImageF(image_size, image_size)
 	
 	psf.drawImage(image=image, scale=pixel_scale)
+	output_t[i] = image.array.flatten()
 	image.addNoise(galsim.GaussianNoise(sigma=noise))
 	output[i] = image.array.flatten()
 	truth[i] = [g1, g2, psf_re]
@@ -95,4 +98,5 @@ for i in range(n):
 ###################################################################################################
 # Write to disk
 np.savetxt(psffname, output, delimiter=',')
+np.savetxt(psftruefname, output_t, delimiter=',')
 np.savetxt(truthfname, truth, delimiter=',')

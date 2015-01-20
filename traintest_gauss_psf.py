@@ -11,9 +11,12 @@ network_name = "gauss_psf_"
 # ! The data *must* be normalised here
 #dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
 dataset = np.loadtxt("data/psfs-smalldev-noisy.dat", delimiter=",")
-
 dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
+
+truthset = np.loadtxt("data/psfs-true-smalldev-noisy.dat", delimiter=",")
+truthset, _, _ = utils.normalise(truthset)
+
 
 # Can we skip some part of the training ?
 pre_train = True
@@ -27,6 +30,9 @@ ind = np.int(trainper * datasize)
 
 train_data = dataset[0:ind]
 test_data = dataset[ind:datasize]
+
+train_true = truthset[0:ind]
+test_true = truthset[ind:datasize]
 #test_data[0] = np.zeros_like(test_data[0])
 
 print 'Shape of the training set: ', np.shape(train_data)
@@ -74,25 +80,30 @@ reconstruc = ae.feedforward(train_data)
 reconstructest = ae.feedforward(test_data)
 
 # Compute the RMSD error for the training set
-rmsd_train = utils.compute_rmsd(train_data, reconstruc)
+rmsd_train = utils.compute_rmsd(reconstruc, train_true)
 recon_avg = np.sum(train_data - reconstruc, axis=0)
 recon_avg /= np.shape(train_data)[0]
 corr = recon_avg.reshape(size,size)
 
 # Compute the RMSD error for the test set
-rmsd_test = utils.compute_rmsd(test_data, reconstructest)
+rmsd_test = utils.compute_rmsd(reconstructest, test_true)
 
 truth = np.loadtxt("data/truth-smalldev.dat", delimiter=",")
 
 # Build PCA:
-pca = utils.compute_pca(train_data, n_components=architecture[-1])
+if train :
+	pca = utils.compute_pca(train_data, n_components=architecture[-1])
+	utils.writepickle(pca, "%spca.pkl" % network_name)
+else: 
+	pca = utils.readpickle("%spca.pkl" % network_name)
+	
 recon_pca = pca.transform(train_data)
 recon_pca = pca.inverse_transform(recon_pca)
-rmsd_train_pca = utils.compute_rmsd(recon_pca, train_data) 
+rmsd_train_pca = utils.compute_rmsd(recon_pca, train_true) 
 
 recont_pca = pca.transform(test_data)
 recont_pca = pca.inverse_transform(recont_pca)
-rmsd_test_pca = utils.compute_rmsd(recont_pca, test_data) 
+rmsd_test_pca = utils.compute_rmsd(recont_pca, test_true) 
 
 print "RMSD ERRORS"
 print "TRAIN"
@@ -230,6 +241,8 @@ for ii in range(10):
 	img = test_data[ii].reshape(size,size)
 	recon = reconstructest[ii].reshape(size,size)# + corr
 	recont_pca_img = recont_pca[ii].reshape(size,size)
+	
+	truimg = truthset[ind+ii].reshape(size,size)
 	"""
 	img = train_data[ii].reshape(size,size)
 	recon = reconstruc[ii].reshape(size,size) + corr
@@ -269,20 +282,18 @@ for ii in range(10):
 	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng = %1.4f\nnoise = %1.4f" % (pg1, pg2, np.hypot(pg1, pg2), pn), va="top")
 	#plt.colorbar()
 	plt.title("PCA")
-	
 	"""
 	plt.subplot(2, 3, 4)
-	plt.imshow((corr), interpolation="nearest")
-	plt.colorbar()
+	plt.imshow((truimg), interpolation="nearest")
 	
 	plt.subplot(2, 3, 5)
 	plt.title("Residues AE")
-	plt.imshow((recon - img), interpolation="nearest")
-	#plt.colorbar()
+	plt.imshow((recon - truimg), interpolation="nearest")
+	plt.colorbar()
 	plt.subplot(2, 3, 6)
 	plt.title("Residues PCA")
-	plt.imshow((recont_pca_img-img), interpolation="nearest")
-	#plt.colorbar()
+	plt.imshow((recont_pca_img-truimg), interpolation="nearest")
+	plt.colorbar()
 	plt.xlabel("RMS Deviation : %1.4f" % (rmsd_test[ii]))
 	"""
 plt.show()
