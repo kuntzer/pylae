@@ -74,3 +74,44 @@ def get_ell(img):
 	g1=res.observed_shape.g1
 	g2=res.observed_shape.g2
 	return g1, g2
+
+def mad(nparray):
+	"""
+	The Median Absolute Deviation
+	http://en.wikipedia.org/wiki/Median_absolute_deviation
+
+	Multiply this by 1.4826 to convert into an estimate of the Gaussian std.
+	"""
+
+	return np.median(np.fabs(nparray - np.median(nparray)))
+
+
+
+def skystats(stamp):
+	"""
+	I measure some statistics of the pixels along the edge of an image or stamp.
+	Useful to measure the sky noise, but also to check for problems. Use "mad"
+	directly as a robust estimate the sky std.
+
+	:param stamp: a galsim image, usually a stamp
+
+	:returns: a dict containing "std", "mad", "mean" and "med"
+	
+	Note that "mad" is already rescaled by 1.4826 to be comparable with std.
+	"""
+
+	a = stamp
+	edgepixels = np.concatenate([
+			a[0,1:], # left
+			a[-1,1:], # right
+			a[:,0], # bottom
+			a[1:-1,-1] # top
+			])
+	assert len(edgepixels) == 2*(a.shape[0]-1) + 2*(a.shape[0]-1)
+
+
+	# And we convert the mad into an estimate of the Gaussian std:
+	return {
+		"std":np.std(edgepixels), "mad": 1.4826 * mad(edgepixels),
+		"mean":np.mean(edgepixels), "med":np.median(edgepixels)
+		}

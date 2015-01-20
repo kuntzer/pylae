@@ -34,14 +34,17 @@ noise = 0.0002
 ###################################################################################################
 # Initialization
 
-ud = galsim.UniformDeviate() 
+
 def rnd(ud):
+	
 	return (ud() - 0.5) * 0.2;
 
 if parampre :
 	r = []
 	for i in range(10000):
-		r.append(rnd(ud))
+		ud = galsim.UniformDeviate() 
+		rr = psf_re*((ud() - 0.5) * 0.3 + 1.)
+		r.append(rr)
 	
 	r = np.asarray(r)
 	print np.amin(r), np.amax(r)
@@ -53,6 +56,7 @@ if parampre :
 
 psffname = "%s/psfs-%s.dat" % (outdir, run_name)
 truthfname = "%s/truth-%s.dat" % (outdir, run_name)
+psftruefname = "%s/psfs-true-%s.dat" % (outdir, run_name)
 
 if (os.path.exists(psffname) or os.path.exists(truthfname))  and False :
 	print 'Either of the following files exists :'
@@ -61,15 +65,17 @@ if (os.path.exists(psffname) or os.path.exists(truthfname))  and False :
 	raise IOError("Files already exist")
 
 output = np.zeros([n, image_size*image_size])
+output_t = np.zeros_like(output)
 truth = np.zeros([n, 3])
 
 ###################################################################################################
 # Core script
-
+psf_re_i = psf_re
 for i in range(n):
+	ud = galsim.UniformDeviate() 
 	g1 = rnd(ud)
 	g2 = rnd(ud)
-	#psf_re *= (ud() - 0.5) * 0.1 + 1;
+	psf_re = psf_re_i*((ud() - 0.5) * 0.3 + 1.)
 
 	print '%5d : g1=%+1.5f, g2=%+1.5f, psf_re=%1.5f' % (i, g1, g2, psf_re)
 
@@ -79,6 +85,7 @@ for i in range(n):
 	image = galsim.ImageF(image_size, image_size)
 	
 	psf.drawImage(image=image, scale=pixel_scale)
+	output_t[i] = image.array.flatten()
 	image.addNoise(galsim.GaussianNoise(sigma=noise))
 	output[i] = image.array.flatten()
 	truth[i] = [g1, g2, psf_re]
@@ -91,4 +98,5 @@ for i in range(n):
 ###################################################################################################
 # Write to disk
 np.savetxt(psffname, output, delimiter=',')
+np.savetxt(psftruefname, output_t, delimiter=',')
 np.savetxt(truthfname, truth, delimiter=',')

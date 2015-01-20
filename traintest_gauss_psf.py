@@ -10,10 +10,14 @@ network_name = "gauss_psf_"
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
 #dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
-dataset = np.loadtxt("data/psfs-smalldev.dat", delimiter=",")
+dataset = np.loadtxt("data/psfs-smalldev-noisy.dat", delimiter=",")
 
 dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
+
+truthset = np.loadtxt("data/psfs-true-smalldev-noisy.dat", delimiter=",")
+truthset, _, _ = utils.normalise(truthset)
+
 
 # Can we skip some part of the training ?
 pre_train = False
@@ -27,6 +31,9 @@ ind = np.int(trainper * datasize)
 
 train_data = dataset[0:ind]
 test_data = dataset[ind:datasize]
+
+train_true = truthset[0:ind]
+test_true = truthset[ind:datasize]
 #test_data[0] = np.zeros_like(test_data[0])
 
 print 'Shape of the training set: ', np.shape(train_data)
@@ -35,11 +42,9 @@ print 'Shape of the testing set: ', np.shape(test_data)
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [784, 392, 196, 98]
-architecture = [759, 15]
+architecture = [512, 15]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
-layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
 
 # Let's go
@@ -47,12 +52,7 @@ ae = pylae.autoencoder.AutoEncoder(network_name)
 if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
-	# For noisy data:
-	#learn_rate={'SIGMOID':0.1, 'LINEAR':0.3/10.}
-	# For noisyless data
-	learn_rate={'SIGMOID':0.0034, 'LINEAR':0.0034/10.}
-	
-	ae.pre_train(train_data, architecture, layers_type, learn_rate=learn_rate, 
+	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.034, 'LINEAR':0.034/10.}, 
 				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.001)
 	
 	# Save the resulting layers
@@ -82,31 +82,38 @@ reconstruc = ae.feedforward(train_data)
 reconstructest = ae.feedforward(test_data)
 
 # Compute the RMSD error for the training set
-rmsd_train = utils.compute_rmsd(train_data, reconstruc)
+rmsd_train = utils.compute_rmsd(reconstruc, train_true)
 recon_avg = np.sum(train_data - reconstruc, axis=0)
 recon_avg /= np.shape(train_data)[0]
 corr = recon_avg.reshape(size,size)
 
 # Compute the RMSD error for the test set
-rmsd_test = utils.compute_rmsd(test_data, reconstructest)
-
-# Show the figures for the distribution of the RMSD and the learning curves
-plt.figure()
-pylae.plots.hist(rmsd_train, rmsd_test)
-
-ae.plot_rmsd_history()
+rmsd_test = utils.compute_rmsd(reconstructest, test_true)
 
 truth = np.loadtxt("data/truth-smalldev.dat", delimiter=",")
 
 # Build PCA:
-pca = utils.compute_pca(train_data, n_components=architecture[-1])
+if train :
+	pca = utils.compute_pca(train_data, n_components=architecture[-1])
+	utils.writepickle(pca, "%spca.pkl" % network_name)
+else: 
+	pca = utils.readpickle("%spca.pkl" % network_name)
+	
 recon_pca = pca.transform(train_data)
 recon_pca = pca.inverse_transform(recon_pca)
-rmsd_train_pca = utils.compute_rmsd(recon_pca, train_data) 
+rmsd_train_pca = utils.compute_rmsd(recon_pca, train_true) 
 
 recont_pca = pca.transform(test_data)
 recont_pca = pca.inverse_transform(recont_pca)
-rmsd_test_pca = utils.compute_rmsd(recont_pca, test_data) 
+rmsd_test_pca = utils.compute_rmsd(recont_pca, test_true) 
+
+print "RMSD ERRORS"
+print "TRAIN"
+print "ae :", np.mean(rmsd_train)
+print "pca:", np.mean(rmsd_train_pca)
+print "TEST"
+print "ae :", np.mean(rmsd_test)
+print "pca:", np.mean(rmsd_test_pca)
 
 # Compute the error on the ellipticity:
 train_ell = []
@@ -115,14 +122,18 @@ test_ell = []
 recon_test_ell = []
 train_pca_ell = []
 test_pca_ell = []
+noise_train = []
+noise_test = []
+noise_test_pca = []
 for ii in range(ind):
 	img = train_data[ii].reshape(size,size)
 	g1, g2 = utils.get_ell(img)
 	train_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
-	img = reconstruc[ii].reshape(size,size)
+	img = reconstruc[ii].reshape(size,size)# + corr
 	g1, g2 = utils.get_ell(img)
 	recon_train_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	noise_train.append(utils.skystats(img)['mad'])
 	
 	img = recon_pca[ii].reshape(size,size)
 	g1, g2 = utils.get_ell(img)
@@ -134,13 +145,15 @@ for ii in range(ind):
 	g1, g2 = utils.get_ell(img)
 	test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
-	img = reconstructest[ii].reshape(size,size)
+	img = reconstructest[ii].reshape(size,size)# + corr
 	g1, g2 = utils.get_ell(img)
 	recon_test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	noise_test.append(utils.skystats(img)['mad'])
 	
 	img = recont_pca[ii].reshape(size,size)
 	g1, g2 = utils.get_ell(img)
 	test_pca_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+	noise_test_pca.append(utils.skystats(img)['mad'])
 	
 train_ell = np.asarray(train_ell)
 recon_train_ell = np.asarray(recon_train_ell)
@@ -183,6 +196,14 @@ print 'gs error :', gs_error
 print 'ae error :', ae_error
 print 'pca error:', pca_error
 
+# Show the figures for the distribution of the RMSD and the learning curves
+plt.figure()
+pylae.plots.hist(rmsd_train, rmsd_test, rmsd_test_pca, xlabel="RMSD")
+plt.figure()
+pylae.plots.hist(noise_train, noise_test, noise_test_pca, xlabel="Noise")
+
+ae.plot_rmsd_history()
+
 plt.figure()
 plt.hist(rms_pca_err, label="PCA", alpha=0.5)
 plt.hist(rms_ae_err, label="Auto-encoder", alpha=0.5)
@@ -220,53 +241,61 @@ plt.show()
 # Show the original test image, the reconstruction and the residues for the first 10 cases
 for ii in range(10):
 	img = test_data[ii].reshape(size,size)
-	recon = reconstructest[ii].reshape(size,size)
+	recon = reconstructest[ii].reshape(size,size)# + corr
 	recont_pca_img = recont_pca[ii].reshape(size,size)
-
+	
+	truimg = truthset[ind+ii].reshape(size,size)
+	"""
+	img = train_data[ii].reshape(size,size)
+	recon = reconstruc[ii].reshape(size,size) + corr
+	recont_pca_img = recon_pca[ii].reshape(size,size)
+	"""
 	try:
 		dg1, dg2 = utils.get_ell(img)
 	except :
 		dg1 = 20
 		dg2 = 20
+	dn = utils.skystats(img)["mad"]
 
 	rg1, rg2, rg = recon_test_ell[ii]
+	rn = utils.skystats(recon)["mad"]
 
 	pg1, pg2 = utils.get_ell(recont_pca_img)
 	pg1, pg2, pg = test_pca_ell[ii]
+	pn = utils.skystats(recont_pca_img)["mad"]
 	
 	tg1, tg2 = truth[ind+ii,0:2]
 	
 	plt.figure()
 	
-	plt.subplot(1, 3, 1)
+	plt.subplot(2, 3, 1)
 	plt.imshow((img), interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\n...........\ntg1 = %1.4f\ntg2 = %1.4f\ng=%1.4f" % (
-		dg1, dg2, np.hypot(dg1, dg2), tg1, tg2, np.hypot(tg1, tg2)), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\nnoise = %1.4f\n...........\ntg1 = %1.4f\ntg2 = %1.4f\ng=%1.4f" % (
+		dg1, dg2, np.hypot(dg1, dg2), dn, tg1, tg2, np.hypot(tg1, tg2)), va="top")
 	plt.title("Data")
-	plt.subplot(1, 3, 2)
+	plt.subplot(2, 3, 2)
 	plt.imshow((recon), interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f" % (rg1, rg2, np.hypot(rg1, rg2)), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\nnoise = %1.4f" % (rg1, rg2, np.hypot(rg1, rg2), rn), va="top")
 	#plt.colorbar()
 	plt.title("Auto-encoder")
-	plt.subplot(1, 3, 3)
+	plt.subplot(2, 3, 3)
 	#plt.imshow((img - recon), interpolation="nearest")
 	plt.imshow(recont_pca_img, interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng = %1.4f" % (pg1, pg2, np.hypot(pg1, pg2)), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng = %1.4f\nnoise = %1.4f" % (pg1, pg2, np.hypot(pg1, pg2), pn), va="top")
 	#plt.colorbar()
 	plt.title("PCA")
-	
 	"""
-	#plt.subplot(2, 3, 4)
-	#plt.imshow((corr), interpolation="nearest")
-	#plt.colorbar()
+	plt.subplot(2, 3, 4)
+	plt.imshow((truimg), interpolation="nearest")
+	
 	plt.subplot(2, 3, 5)
 	plt.title("Residues AE")
-	plt.imshow((recon - img), interpolation="nearest")
-	#plt.colorbar()
+	plt.imshow((recon - truimg), interpolation="nearest")
+	plt.colorbar()
 	plt.subplot(2, 3, 6)
 	plt.title("Residues PCA")
-	plt.imshow((recont_pca_img-img), interpolation="nearest")
-	#plt.colorbar()
+	plt.imshow((recont_pca_img-truimg), interpolation="nearest")
+	plt.colorbar()
 	plt.xlabel("RMS Deviation : %1.4f" % (rmsd_test[ii]))
 	"""
 plt.show()
