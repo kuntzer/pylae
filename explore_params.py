@@ -99,6 +99,7 @@ for nn in nnn:
 		for a in aa[::-1]:
 			archi += [np.int(a)]
 		architectures.append(archi)
+architectures = [[512, 15],[759, 15]]
 params = architectures
 
 if explore:

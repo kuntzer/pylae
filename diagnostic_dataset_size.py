@@ -12,7 +12,7 @@ network_name = "gauss_psf_"
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
 #dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
-dataset = np.loadtxt("data/psfs-smalldev.dat", delimiter=",")
+dataset = np.loadtxt("data/psfs-smalldev-noisy.dat", delimiter=",")
 
 dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
@@ -22,7 +22,7 @@ do_train = True
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [256, 16]
+architecture = [512, 16]
 #architecture = [256, 128, 64, 32]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
@@ -49,8 +49,8 @@ def worker(datas):
 	
 	datasizes.append(datasize)
 	ae = pylae.autoencoder.AutoEncoder(network_name)
-	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':1e-2}, 
-				iterations=2000, mini_batch=100)
+	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.0034, 'LINEAR':0.0034/10.}, 
+				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.001)
 
 	print 'Starting backpropagation'
 	ae.backpropagation(train_data, iterations=500, learn_rate=0.1, momentum_rate=0.85)
@@ -113,7 +113,7 @@ if do_train:
 	error_train = []
 	error_test = []
 	
-	datass = [1., 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1]#np.linspace(1,0,10, endpoint=False)
+	datass = [1., 0.8, 0.6, 0.4, 0.3, 0.2, 0.15, 0.1, 0.07, 0.05, 0.03, 0.01]#np.linspace(1,0,10, endpoint=False)
 	ncpu=7#multiprocessing.cpu_count()
 	#res=worker(0.5)
 	pool = multiprocessing.Pool(processes=ncpu)

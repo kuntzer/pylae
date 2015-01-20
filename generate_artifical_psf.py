@@ -29,19 +29,22 @@ image_size = 32
 parampre = False
 
 # Noise level
-noise = 0.0002
+noise = 0.0005
 
 ###################################################################################################
 # Initialization
 
-ud = galsim.UniformDeviate() 
+
 def rnd(ud):
+	
 	return (ud() - 0.5) * 0.2;
 
 if parampre :
 	r = []
 	for i in range(10000):
-		r.append(rnd(ud))
+		ud = galsim.UniformDeviate() 
+		rr = psf_re*((ud() - 0.5) * 0.3 + 1.)
+		r.append(rr)
 	
 	r = np.asarray(r)
 	print np.amin(r), np.amax(r)
@@ -65,11 +68,12 @@ truth = np.zeros([n, 3])
 
 ###################################################################################################
 # Core script
-
+psf_re_i = psf_re
 for i in range(n):
+	ud = galsim.UniformDeviate() 
 	g1 = rnd(ud)
 	g2 = rnd(ud)
-	#psf_re *= (ud() - 0.5) * 0.1 + 1;
+	psf_re = psf_re_i*((ud() - 0.5) * 0.3 + 1.)
 
 	print '%5d : g1=%+1.5f, g2=%+1.5f, psf_re=%1.5f' % (i, g1, g2, psf_re)
 

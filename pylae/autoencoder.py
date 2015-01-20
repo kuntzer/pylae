@@ -214,7 +214,7 @@ class AutoEncoder():
 			for layer in self.rbms :
 				plt.plot(np.arange(np.size(layer.rmsd_history)), layer.rmsd_history, lw=2, 
 						label="%d nodes" % layer.hidden_nodes)
-		plt.plot(np.arange(np.size(self.rmsd_history)), self.rmsd_history, lw=2, label="Backprop")	
+		plt.semilogy(np.arange(np.size(self.rmsd_history)), self.rmsd_history, lw=2, label="Backprop")	
 		plt.grid()
 		plt.legend(loc="best")
 		plt.xlabel("Epoch")
