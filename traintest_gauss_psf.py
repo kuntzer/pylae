@@ -204,6 +204,8 @@ print 'ae error :', ae_error
 print 'pca error:', pca_error
 
 # Show the figures for the distribution of the RMSD and the learning curves
+pylae.figures.set_fancy()
+
 plt.figure()
 pylae.plots.hist(rmsd_train, rmsd_test, rmsd_test_pca, xlabel="RMSD")
 plt.figure()
