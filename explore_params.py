@@ -16,37 +16,16 @@ def train(train_data, params, layers_type):
 	
 	return ae
 
-def cost(ae, test_data):
+def cost(ae, test_data, true_data):
 
-	test_ell = []
-	recon_test_ell = []
-	
 	reconstructest = ae.feedforward(test_data)
-
-	size = np.sqrt(np.shape(test_data)[1])
 
 	for ii in range(np.shape(test_data)[0]):
 		
-		img = test_data[ii].reshape(size,size)
-		try:
-			g1, g2 = utils.get_ell(img)
-		except:
-			continue
-		test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
-		
-		img = reconstructest[ii].reshape(size,size)
-		try:
-			g1, g2 = utils.get_ell(img)
-		except: 
-			continue
-		recon_test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
+		img = reconstructest[ii]
+		tru = true_data[ii]
 	
-	test_ell = np.asarray(test_ell)
-	recon_test_ell = np.asarray(recon_test_ell)
-
-	ae_ell_error = recon_test_ell[:,2] - test_ell[:,2]
-	
-	ae_error = np.sqrt(np.mean(ae_ell_error * ae_ell_error))
+	ae_error = np.sqrt(np.mean((img-tru)*(img-tru)))
 
 	return ae_error
 
@@ -57,15 +36,20 @@ def worker(params):
 	ae = train(train_data, params, layers_type)
 
 	try:
-		c = cost(ae, test_data)
+		c = cost(ae, test_data, true_data)
 	except IndexError :
 		c = -0.0001
 	return c
 
 ###################################################################################################
 
-dataset = np.loadtxt("data/psfs-smalldev.dat", delimiter=",")
+run_name = "smalldev-noisy"
+
+dataset = np.loadtxt("data/psfs-%s.dat" % run_name, delimiter=",")
 dataset, low, high = utils.normalise(dataset)
+
+truthset = np.loadtxt("data/psfs-true-%s.dat" % run_name, delimiter=",")
+truthset, _, _ = utils.normalise(truthset)
 
 datasize = np.shape(dataset)[0]
 datasize = 2000
@@ -74,6 +58,8 @@ ind = np.int(trainper * datasize)
 
 train_data = dataset[0:ind]
 test_data = dataset[ind:datasize]
+
+true_data = truthset[ind:datasize]
 
 nb_params = 32
 
@@ -85,7 +71,7 @@ min_nb_neuron = 15
 #architecture = [512, 16]
 #params = np.logspace(-6,-0.09, nb_params)
 #params = np.linspace(0.001,1., nb_params)
-
+"""
 architectures = []
 nnn = np.linspace(min_nb_neuron, 784, nb_params)
 nl = [1,2,3]
@@ -98,8 +84,8 @@ for nn in nnn:
 		archi = []#[np.int(max)]
 		for a in aa[::-1]:
 			archi += [np.int(a)]
-		architectures.append(archi)
-architectures = [[512, 15],[759, 15]]
+		architectures.append(archi)"""
+architectures = [[np.int(i), min_nb_neuron] for i in np.linspace(min_nb_neuron, 10000, nb_params)]
 params = architectures
 
 if explore:
@@ -123,6 +109,6 @@ else:
 	nn, score = utils.readpickle([nn, score], "diagnostic_explore_params.pkl")
 
 plt.figure()
-plt.plot(nn, score, lw=2)
+plt.plot(nn, score, '*--', ms=20, lw=2)
 plt.grid()
 plt.show()

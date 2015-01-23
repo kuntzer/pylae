@@ -10,10 +10,10 @@ import pylab as plt
 import os
 
 outdir = 'data'
-run_name = 'smalldev-bitnoisy'
+run_name = 'smalldev-noisy'
 
 # Number of PSFs
-n = 3000
+n = 10000
 
 # Pixel scale in arcsec / pixel
 pixel_scale = 0.1
@@ -29,7 +29,7 @@ image_size = 32
 parampre = False
 
 # Noise level
-noise = 0.00002
+noise = 0.0002
 
 ###################################################################################################
 # Initialization
@@ -43,7 +43,7 @@ if parampre :
 	r = []
 	for i in range(10000):
 		ud = galsim.UniformDeviate() 
-		rr = psf_re*((ud() - 0.5) * 0.3 + 1.)
+		rr = psf_re*((ud() - 0.3) * 0.3 + 1.)
 		r.append(rr)
 	
 	r = np.asarray(r)

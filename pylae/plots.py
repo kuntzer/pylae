@@ -16,19 +16,19 @@ def hist(train, test, pca=None, xlabel=None):
 
 	
 	b = _nb_bins(train, 100, 20)
-	_, _, patches = plt.hist(train, normed=True, color='gold', label="Train set", alpha=.5, bins=b)
+	_, _, patches = plt.hist(train, bins=b, normed=True, color='gold', label="Train set", alpha=.5)
 	c = plt.getp(patches[0], 'facecolor')
 	vspans(train, c)
 
 	
 	b = _nb_bins(test, 100, 20)
-	_, _, patches = plt.hist(test, normed=True, color='g', label="Test set", alpha=.5, bins=b)
+	_, _, patches = plt.hist(test, bins=b, normed=True, color='g', label="Test set", alpha=.5)
 	c = plt.getp(patches[0], 'facecolor')
 	vspans(test, c)
 	
 	if not pca is None:
 		b = _nb_bins(pca, 100, 20)
-		_, _, patches = plt.hist(pca, normed=True, color='b', label="PCA set", alpha=.5, bins=b)
+		_, _, patches = plt.hist(pca, bins=b, normed=True, color='b', label="PCA set", alpha=.5)
 		c = plt.getp(patches[0], 'facecolor')
 		vspans(pca, c)
 	

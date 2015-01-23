@@ -19,6 +19,9 @@ def savefig(fname,fig,fancy=False, dpi=300, transparent=True):
 	
 
 def set_fancy(font='Palatino'):
+	"""
+	:param font: which latex font to use. Have a look here http://www.tug.dk/FontCatalogue/
+	"""
 	from matplotlib import rc
 	rc('font',**{'family':'serif','serif':[font],'size':16})
 	rc('text', usetex=True)

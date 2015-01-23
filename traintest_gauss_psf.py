@@ -5,30 +5,43 @@ import numpy as np
 import pylab as plt
 import os
 
-run_name = 'noisy'
+run_name = 'smalldev-noisy'
 network_name = run_name
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
 #dataset = np.loadtxt("data/psfs-gs_rnd.dat", delimiter=",")
-dataset = np.loadtxt("data/psfs-smalldev-%s.dat" % run_name, delimiter=",")
+dataset = np.loadtxt("data/psfs-%s.dat" % run_name, delimiter=",")
 
 dataset, low, high = utils.normalise(dataset)
 size = np.sqrt(np.shape(dataset)[1])
 
-truthset = np.loadtxt("data/psfs-true-smalldev-%s.dat" % run_name, delimiter=",")
+truthset = np.loadtxt("data/psfs-true-%s.dat" % run_name, delimiter=",")
 truthset, _, _ = utils.normalise(truthset)
 
 
 # Can we skip some part of the training ?
-pre_train = False
-train = False
+pre_train = True
+train = True
 
 # Add the mean of the residues ?
-do_corr = True
+do_corr = False
 
+fancy = False
+
+# Definition of the first half of the autoencoder -- the encoding bit.
+# The deeper the architecture the more complex features can be learned.
+architecture = [2000, 1000, 500, 100, 15]
+architecture = [960, 480, 240, 120, 60, 30, 15]
+architecture = [4000, 15]
+
+# The layers_type must have len(architecture)+1 item.
+# TODO: explain why and how to choose.
+layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
+layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
+layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
 # Separate into training and testing data
 datasize = np.shape(dataset)[0]
-datasize = 2000
+datasize = 2000#10000
 trainper = 0.7
 ind = np.int(trainper * datasize)
 
@@ -41,14 +54,6 @@ test_true = truthset[ind:datasize]
 
 print 'Shape of the training set: ', np.shape(train_data)
 print 'Shape of the testing set: ', np.shape(test_data)
-
-
-# Definition of the first half of the autoencoder -- the encoding bit.
-# The deeper the architecture the more complex features can be learned.
-architecture = [512, 15]
-# The layers_type must have len(architecture)+1 item.
-# TODO: explain why and how to choose.
-layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
 
 # Let's go
 ae = pylae.autoencoder.AutoEncoder(network_name)
@@ -79,10 +84,12 @@ if train:
 else :
 	ae = utils.readpickle("%sautoencoder.pkl" % network_name)
 
+print "Training complete."
 # Use the training data as if it were a training set
 reconstruc = ae.feedforward(train_data)
 #np.random.shuffle(test_data)
 reconstructest = ae.feedforward(test_data)
+print "Reconstruction complete"
 
 # Compute the RMSD error for the training set
 recon_avg = np.mean(train_data - reconstruc, axis=0)
@@ -97,7 +104,9 @@ rmsd_train = utils.compute_rmsd(reconstruc, train_true)
 # Compute the RMSD error for the test set
 rmsd_test = utils.compute_rmsd(reconstructest, test_true)
 
-truth = np.loadtxt("data/truth-smalldev.dat", delimiter=",")
+truth = np.loadtxt("data/truth-%s.dat" % run_name, delimiter=",")
+truth_train = truth[0:ind]
+truth_test = truth[ind:datasize]
 
 # Build PCA:
 if train :
@@ -114,7 +123,7 @@ recont_pca = pca.transform(test_data)
 recont_pca = pca.inverse_transform(recont_pca)
 rmsd_test_pca = utils.compute_rmsd(recont_pca, test_true) 
 
-print "RMSD ERRORS"
+print "RMSD ERRORS ON IMAGES"
 print "TRAIN"
 print "ae :", np.mean(rmsd_train)
 print "pca:", np.mean(rmsd_train_pca)
@@ -169,7 +178,7 @@ recon_test_ell = np.asarray(recon_test_ell)
 train_pca_ell = np.asarray(train_pca_ell)
 test_pca_ell = np.asarray(test_pca_ell)
 
-print "ERROR ON TRAIN DATA"
+print "ELL ERROR ON TRAIN DATA"
 pca_ell_error = train_pca_ell[:,2] - train_ell[:,2]
 rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
 ae_ell_error = recon_train_ell[:,2] - train_ell[:,2]
@@ -186,14 +195,14 @@ print 'gs error :', gs_error
 print 'ae error :', ae_error
 print 'pca error:', pca_error
 
-print "ERROR ON TEST DATA"
+print "ELL ERROR ON TEST DATA"
 pca_ell_error = test_pca_ell[:,2] - test_ell[:,2]
 rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
 ae_ell_error = recon_test_ell[:,2] - test_ell[:,2]
 rms_ae_err = np.sqrt(ae_ell_error*ae_ell_error)
 
-tru_ell = np.sqrt(truth[0:ind,0]*truth[0:ind,0] + truth[0:ind,1]*truth[0:ind,1])
-gs_ell_error = train_ell[:,2] - tru_ell
+tru_ell = np.sqrt(truth[ind:datasize,0]*truth[ind:datasize,0] + truth[ind:datasize,1]*truth[ind:datasize,1])
+gs_ell_error = test_ell[:,2] - tru_ell
 gs_error = np.sqrt(np.mean(gs_ell_error * gs_ell_error))
 
 pca_error = np.sqrt(np.mean(pca_ell_error * pca_ell_error))
@@ -204,7 +213,7 @@ print 'ae error :', ae_error
 print 'pca error:', pca_error
 
 # Show the figures for the distribution of the RMSD and the learning curves
-pylae.figures.set_fancy()
+if fancy : pylae.figures.set_fancy()
 
 plt.figure()
 pylae.plots.hist(rmsd_train, rmsd_test, rmsd_test_pca, xlabel="RMSD")
@@ -230,7 +239,7 @@ plt.grid()
 
 plt.figure()
 plt.scatter(test_pca_ell[:,2], noise_test_pca, label="PCA", color="b")
-plt.scatter(test_pca_ell[:,2], noise_test, label="Auto-encoder", color="g")
+plt.scatter(recon_test_ell[:,2], noise_test, label="Auto-encoder", color="g")
 pylae.plots.hspans(noise_test, "g")
 pylae.plots.hspans(noise_test_pca, "b")
 
@@ -238,8 +247,23 @@ plt.xlim([0, 1.02*np.amax([np.amax(recon_test_ell[:,2]), np.amax(test_pca_ell[:,
 plt.ylim([0.98*np.amin([np.amin(noise_test), np.amin(noise_test_pca)]),\
 	1.02*np.amax([np.amax(noise_test), np.amax(noise_test_pca)])])
 
-plt.xlabel("e of reconstructed data")
+plt.xlabel("Ellipticity of reconstructed data")
 plt.ylabel("Noise")
+plt.legend(loc="best")
+plt.grid()
+
+plt.figure()
+plt.scatter(tru_ell, test_pca_ell[:,2], label="PCA", color="b")
+plt.scatter(tru_ell, recon_test_ell[:,2], label="Auto-encoder", color="g")
+#pylae.plots.hspans(noise_test, "g")
+#pylae.plots.hspans(noise_test_pca, "b")
+plt.plot([0.,np.amax(tru_ell)], [0.,np.amax(tru_ell)], 'r--', lw=2)
+plt.xlim([0, 1.02*np.amax(tru_ell)])
+plt.ylim([0.98*np.amin([np.amin(test_pca_ell[:,2]), np.amin(recon_test_ell[:,2])]),\
+	1.02*np.amax([np.amax(test_pca_ell[:,2]), np.amax(recon_test_ell[:,2])])])
+
+plt.xlabel("Ellipticity of true data")
+plt.ylabel("Ellipticity of reconstructed data")
 plt.legend(loc="best")
 plt.grid()
 
@@ -255,9 +279,9 @@ plt.grid()
 
 #########################################################################
 
-pca_ell_error = train_pca_ell[:,2] - tru_ell
+pca_ell_error = test_pca_ell[:,2] - tru_ell
 rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
-ae_ell_error = recon_train_ell[:,2] - tru_ell
+ae_ell_error = recon_test_ell[:,2] - tru_ell
 rms_ae_err = np.sqrt(ae_ell_error*ae_ell_error)
 
 pca_error = np.sqrt(np.mean(pca_ell_error * pca_ell_error))
@@ -309,21 +333,21 @@ for ii in range(10):
 	
 	plt.subplot(2, 3, 1)
 	plt.imshow((img), interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\nnoise = %1.4f\n...........\ntg1 = %1.4f\ntg2 = %1.4f\ng=%1.4f" % (
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\n\nnoise = %1.4f\n...........\ntg1 = %1.4f\ntg2 = %1.4f\ng=%1.4f" % (
 		dg1, dg2, np.hypot(dg1, dg2), dn, tg1, tg2, np.hypot(tg1, tg2)), va="top")
 	plt.title("Data")
 	plt.subplot(2, 3, 2)
 	plt.imshow((recon), interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\nnoise = %1.4f" % (rg1, rg2, np.hypot(rg1, rg2), rn), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\n\nnoise = %1.4f" % (rg1, rg2, np.hypot(rg1, rg2), rn), va="top")
 	#plt.colorbar()
 	plt.title("Auto-encoder")
 	plt.subplot(2, 3, 3)
 	#plt.imshow((img - recon), interpolation="nearest")
 	plt.imshow(recont_pca_img, interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng = %1.4f\nnoise = %1.4f" % (pg1, pg2, np.hypot(pg1, pg2), pn), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng = %1.4f\n\nnoise = %1.4f" % (pg1, pg2, np.hypot(pg1, pg2), pn), va="top")
 	#plt.colorbar()
 	plt.title("PCA")
-	"""
+	
 	plt.subplot(2, 3, 4)
 	plt.imshow((truimg), interpolation="nearest")
 	
@@ -336,5 +360,6 @@ for ii in range(10):
 	plt.imshow((recont_pca_img-truimg), interpolation="nearest")
 	plt.colorbar()
 	plt.xlabel("RMS Deviation : %1.4f" % (rmsd_test[ii]))
-	"""
+	
+	plt.subplots_adjust(hspace = 1.8)
 plt.show()
