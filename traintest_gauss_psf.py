@@ -32,7 +32,7 @@ fancy = False
 # The deeper the architecture the more complex features can be learned.
 architecture = [2000, 1000, 500, 100, 15]
 architecture = [960, 480, 240, 120, 60, 30, 15]
-architecture = [4000, 15]
+architecture = [4287, 15]
 
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.

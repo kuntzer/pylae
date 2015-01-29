@@ -61,7 +61,7 @@ test_data = dataset[ind:datasize]
 
 true_data = truthset[ind:datasize]
 
-nb_params = 32
+nb_params = 8
 
 explore = True
 
@@ -85,7 +85,7 @@ for nn in nnn:
 		for a in aa[::-1]:
 			archi += [np.int(a)]
 		architectures.append(archi)"""
-architectures = [[np.int(i), min_nb_neuron] for i in np.linspace(min_nb_neuron, 10000, nb_params)]
+architectures = [[np.int(i), min_nb_neuron] for i in np.linspace(min_nb_neuron, 5000, nb_params)]
 params = architectures
 
 if explore:

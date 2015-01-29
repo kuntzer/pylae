@@ -42,6 +42,7 @@ elif not pre_train and train :
 	# An autoencoder instance was created some lines earlier, preparing the other half of the 
 	# network based on layers loaded from the pickle file. 
 	ae.set_autencoder(rbms)
+	ae.is_pretrained = True
 	
 if train:
 	print 'Starting backpropagation'
