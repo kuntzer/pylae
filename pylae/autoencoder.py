@@ -77,7 +77,7 @@ class AutoEncoder():
 			print "Pre-training layer %d..." % (ii + 1)
 			learnr = learn_rate[layers_type[ii+1]]
 
-			layer = RBM.RBM_gd(architecture[ii], layers_type[ii], layers_type[ii+1], mini_batch, 
+			layer = RBM.RBM(architecture[ii], layers_type[ii], layers_type[ii+1], mini_batch, 
 						iterations, max_epoch_without_improvement=max_epoch_without_improvement, 
 						early_stop=early_stop)
 			layer.train(data, learn_rate_w=learnr, learn_rate_visb=learnr, 
