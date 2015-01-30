@@ -61,7 +61,7 @@ print 'Shape of the training set: ', np.shape(train_data)
 print 'Shape of the testing set: ', np.shape(test_data)
 
 # Let's go
-ae = pylae.autoencoder.AutoEncoder(network_name, rbm_type="gd")
+ae = pylae.autoencoder.AutoEncoder(network_name, rbm_type="cd1")
 if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
