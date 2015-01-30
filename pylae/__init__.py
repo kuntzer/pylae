@@ -1,6 +1,6 @@
-__all__ = ["RBM","utils","autoencoder","plots","figures"]
+__all__ = ["RBM_gd","utils","autoencoder","plots","figures"]
 
-import RBM
+from pylae import RBM_gd
 import autoencoder
 import utils
 import plots

@@ -12,7 +12,9 @@ network_name = "demo_"
 # ! The data *must* be normalised here
 data = np.loadtxt("data/digit.dat", delimiter=",")
 data, _ , _ = utils.normalise(data)
+datall = data
 #data = data.T
+data = data[:700]
 size = np.sqrt(np.shape(data)[1])
 
 # Can we skip some part of the training ?
@@ -27,40 +29,61 @@ architecture = [256, 64, 8]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 
 # Let's go
-ae = pylae.autoencoder.AutoEncoder('demo')
+gd = pylae.autoencoder.AutoEncoder('demo_gradientdescent', rbm_type="gd")
+cd1 = pylae.autoencoder.AutoEncoder('demo_gradientdescent', rbm_type="cd1")
 if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
-	ae.pre_train(data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':1e-3}, 
+	gd.pre_train(data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':0.01}, 
 				iterations=2000, mini_batch=100)
 	
 	# Save the resulting layers
-	utils.writepickle(ae.rbms, "%srbms.pkl" % network_name)
+	utils.writepickle(gd.rbms, "%sgdrbms.pkl" % network_name)
+	
+	# This will train layer by layer the network by minimising the error
+	# TODO: explain this in more details
+	cd1.pre_train(data, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':0.01}, 
+				iterations=2000, mini_batch=100)
+	
+	
+	# Save the resulting layers
+	utils.writepickle(cd1.rbms, "%scd1rbms.pkl" % network_name)
 	
 elif not pre_train and train :
-	rbms = utils.readpickle("%srbms.pkl" % network_name)
+	rbms = utils.readpickle("%sgdrbms.pkl" % network_name)
 	# An autoencoder instance was created some lines earlier, preparing the other half of the 
 	# network based on layers loaded from the pickle file. 
-	ae.set_autencoder(rbms)
-	ae.is_pretrained = True
+	gd.set_autencoder(rbms)
+	gd.is_pretrained = True
+	
+	rbms = utils.readpickle("%scd1rbms.pkl" % network_name)
+	# An autoencoder instance was created some lines earlier, preparing the other half of the 
+	# network based on layers loaded from the pickle file. 
+	cd1.set_autencoder(rbms)
+	cd1.is_pretrained = True
 	
 if train:
 	print 'Starting backpropagation'
-	ae.backpropagation(data, iterations=500, learn_rate=0.001, momentum_rate=0.9)
+	gd.backpropagation(data, iterations=2000, learn_rate=0.01, momentum_rate=0.9)
 
-	ae.save("%sautoencoder.pkl" % network_name)
+	gd.save("%sgdautoencoder.pkl" % network_name)
+	
+	cd1.backpropagation(data, iterations=2000, learn_rate=0.1, momentum_rate=0.9)
+
+	cd1.save("%scd1autoencoder.pkl" % network_name)
 	
 	os.system("/usr/bin/canberra-gtk-play --id='complete-media-burn'")
 
 else :
-	ae = utils.readpickle("%sautoencoder.pkl" % network_name)
+	gd = utils.readpickle("%sgdautoencoder.pkl" % network_name)
+	cd1 = utils.readpickle("%scd1autoencoder.pkl" % network_name)
 
 # Use the training data as if it were a training set
-data, _ , _ = utils.normalise(data)
-test = copy.deepcopy(data)
+test = copy.deepcopy(datall[700:,:])
 np.random.shuffle(test)
 
-reconstruc = ae.feedforward(test)
+reconstruc = gd.feedforward(test)
+reconstruc_cd1 = cd1.feedforward(test)
 
 # Compute the RMSD error for the training set
 rmsd = utils.compute_rmsd(test, reconstruc)
@@ -69,18 +92,72 @@ rmsd = utils.compute_rmsd(test, reconstruc)
 plt.figure()
 plt.hist(rmsd)
 
-ae.plot_rmsd_history()
+gd.plot_rmsd_history()
+cd1.plot_rmsd_history()
+
+pca = utils.compute_pca(data, n_components=architecture[-1])
+recont_pca = pca.transform(test)
+recont_pca = pca.inverse_transform(recont_pca)
+
+varrent = 0
+varrentpca = 0
+varrentcd1 = 0
+for ii in range(np.shape(test)[0]):
+	true = test[ii]
+	approx = reconstruc[ii]
+	approxcd1 = reconstruc_cd1[ii]
+	approxpca = recont_pca[ii]
+	
+	div = np.linalg.norm(true)
+	div = div * div
+	
+	norm = np.linalg.norm(true - approx)
+	norm = norm * norm
+
+	varrent += norm / div / np.shape(test)[0]
+	
+	norm = np.linalg.norm(true - approxpca)
+	norm = norm * norm
+	varrentpca += norm / div / np.shape(test)[0]
+	
+	norm = np.linalg.norm(true - approxcd1)
+	norm = norm * norm
+	varrentcd1 += norm / div / np.shape(test)[0]
+
+print "Variance retention for gd:", varrent
+print "Variance retention for cd1:", varrentcd1 
+print "Variance retention for pca:", varrentpca
 
 # Show the original image, the reconstruction and the residues for the first 10 cases
 for ii in range(10):
 	img = test[ii].reshape(size,size)
 	recon = reconstruc[ii].reshape(size,size)
+	recont = recont_pca[ii].reshape(size,size)
+	recon_cd1 = reconstruc_cd1[ii].reshape(size,size)
 
-	plt.figure()
-	plt.subplot(1, 3, 1)
+	plt.figure(figsize=(9,9))
+	
+	plt.subplot(3, 3, 1)
 	plt.imshow((img), interpolation="nearest")
-	plt.subplot(1, 3, 2)
+	
+	plt.subplot(3, 3, 2)
+	plt.title("Gradient Desc.")
 	plt.imshow((recon), interpolation="nearest")
-	plt.subplot(1, 3, 3)
+	plt.subplot(3, 3, 3)
 	plt.imshow((img - recon), interpolation="nearest")
+	plt.title("Gradient Desc. residues")
+	
+	plt.subplot(3, 3, 5)
+	plt.title("CD1")
+	plt.imshow((recon_cd1), interpolation="nearest")
+	plt.subplot(3, 3, 6)
+	plt.imshow((img - recon_cd1), interpolation="nearest")
+	plt.title("CD1 residues")
+	
+	plt.subplot(3, 3, 8)
+	plt.imshow((recont), interpolation="nearest")
+	plt.title("PCA")
+	plt.subplot(3, 3, 9)
+	plt.imshow((img - recont), interpolation="nearest")
+	plt.title("PCA residues")
 plt.show()

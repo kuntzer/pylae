@@ -70,9 +70,14 @@ def compute_pca(data, n_components=None):
 
 def get_ell(img):
 	gps = galsim.Image(img)
-	res = galsim.hsm.FindAdaptiveMom(gps)
-	g1=res.observed_shape.g1
-	g2=res.observed_shape.g2
+	try:
+		res = galsim.hsm.FindAdaptiveMom(gps)
+		g1=res.observed_shape.g1
+		g2=res.observed_shape.g2
+	except:
+		g1 = 0.#np.nan
+		g2 = 0.#np.nan
+
 	return g1, g2
 
 def mad(nparray):

@@ -1,15 +1,16 @@
 import numpy as np
 import utils
 import copy
-import RBM
+
 
 class AutoEncoder():
 	
-	def __init__(self, name='', verbose=False):
+	def __init__(self, name='', rbm_type="gd", verbose=False):
 		self.name = name
 		self.is_pretrained = False
 		self.is_trained = False
 		self.verbose = verbose
+		self.rbm_type = rbm_type
 		
 	def set_autencoder(self, encoder):
 		"""
@@ -53,6 +54,13 @@ class AutoEncoder():
 		"""
 		
 		"""
+		if self.rbm_type == "gd" :
+			import RBM_gd as RBM
+		elif self.rbm_type == "cd1" :
+			import RBM_cd1 as RBM
+		else:
+			raise RuntimeError("RBM_gd training type %s unknown." % self.rbm_type)
+		
 		
 		assert len(architecture) + 1 == len(layers_type)
 		
@@ -69,7 +77,7 @@ class AutoEncoder():
 			print "Pre-training layer %d..." % (ii + 1)
 			learnr = learn_rate[layers_type[ii+1]]
 
-			layer = RBM.RBM(architecture[ii], layers_type[ii], layers_type[ii+1], mini_batch, 
+			layer = RBM_gd.RBM_gd(architecture[ii], layers_type[ii], layers_type[ii+1], mini_batch, 
 						iterations, max_epoch_without_improvement=max_epoch_without_improvement, 
 						early_stop=early_stop)
 			layer.train(data, learn_rate_w=learnr, learn_rate_visb=learnr, 

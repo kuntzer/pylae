@@ -18,6 +18,8 @@ size = np.sqrt(np.shape(dataset)[1])
 truthset = np.loadtxt("data/psfs-true-%s.dat" % run_name, delimiter=",")
 truthset, _, _ = utils.normalise(truthset)
 
+truth = np.loadtxt("data/truth-%s.dat" % run_name, delimiter=",")
+
 
 # Can we skip some part of the training ?
 pre_train = True
@@ -32,12 +34,15 @@ fancy = False
 # The deeper the architecture the more complex features can be learned.
 architecture = [2000, 1000, 500, 100, 15]
 architecture = [960, 480, 240, 120, 60, 30, 15]
-architecture = [4287, 15]
+#architecture = [4287, 15]
+architecture = [128, 8]
+pca_nb_components = 15#architecture[-1]
 
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
+#layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
 layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
 # Separate into training and testing data
 datasize = np.shape(dataset)[0]
@@ -56,7 +61,7 @@ print 'Shape of the training set: ', np.shape(train_data)
 print 'Shape of the testing set: ', np.shape(test_data)
 
 # Let's go
-ae = pylae.autoencoder.AutoEncoder(network_name)
+ae = pylae.autoencoder.AutoEncoder(network_name, rbm_type="gd")
 if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
@@ -104,13 +109,12 @@ rmsd_train = utils.compute_rmsd(reconstruc, train_true)
 # Compute the RMSD error for the test set
 rmsd_test = utils.compute_rmsd(reconstructest, test_true)
 
-truth = np.loadtxt("data/truth-%s.dat" % run_name, delimiter=",")
 truth_train = truth[0:ind]
 truth_test = truth[ind:datasize]
 
 # Build PCA:
 if train :
-	pca = utils.compute_pca(train_data, n_components=architecture[-1])
+	pca = utils.compute_pca(train_data, n_components=pca_nb_components)
 	utils.writepickle(pca, "%spca.pkl" % network_name)
 else: 
 	pca = utils.readpickle("%spca.pkl" % network_name)
