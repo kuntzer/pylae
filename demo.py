@@ -18,12 +18,12 @@ data = data[:700]
 size = np.sqrt(np.shape(data)[1])
 
 # Can we skip some part of the training ?
-pre_train = True
+pre_train = False
 train = pre_train
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [256, 64, 8]
+architecture = [256, 64, 16]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]

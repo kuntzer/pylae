@@ -22,8 +22,8 @@ truth = np.loadtxt("data/truth-%s.dat" % run_name, delimiter=",")
 
 
 # Can we skip some part of the training ?
-pre_train = True
-train = True
+pre_train = False
+train = False
 
 # Add the mean of the residues ?
 do_corr = False
@@ -35,15 +35,16 @@ fancy = False
 architecture = [2000, 1000, 500, 100, 15]
 architecture = [960, 480, 240, 120, 60, 30, 15]
 #architecture = [4287, 15]
-architecture = [128, 8]
-pca_nb_components = 15#architecture[-1]
+architecture = [700, 300, 128]
+#architecture = [128, 15]
+pca_nb_components = architecture[-1]
 
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 #layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
-layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
+layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 # Separate into training and testing data
 datasize = np.shape(dataset)[0]
 datasize = 2000#10000
@@ -61,12 +62,12 @@ print 'Shape of the training set: ', np.shape(train_data)
 print 'Shape of the testing set: ', np.shape(test_data)
 
 # Let's go
-ae = pylae.autoencoder.AutoEncoder(network_name, rbm_type="cd1")
+ae = pylae.autoencoder.AutoEncoder(network_name, rbm_type="gd")
 if pre_train:
 	# This will train layer by layer the network by minimising the error
 	# TODO: explain this in more details
 	ae.pre_train(train_data, architecture, layers_type, learn_rate={'SIGMOID':0.034, 'LINEAR':0.034/10.}, 
-				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.001)
+				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.002)
 	
 	# Save the resulting layers
 	utils.writepickle(ae.rbms, "%srbms.pkl" % network_name)
@@ -353,15 +354,16 @@ for ii in range(10):
 	plt.title("PCA")
 	
 	plt.subplot(2, 3, 4)
-	plt.imshow((truimg), interpolation="nearest")
+	plt.title("data - true")
+	plt.imshow((img-truimg), interpolation="nearest")
 	
 	plt.subplot(2, 3, 5)
 	plt.title("Residues AE")
-	plt.imshow((recon - truimg), interpolation="nearest")
+	plt.imshow((recon - img), interpolation="nearest")
 	plt.colorbar()
 	plt.subplot(2, 3, 6)
 	plt.title("Residues PCA")
-	plt.imshow((recont_pca_img-truimg), interpolation="nearest")
+	plt.imshow((recont_pca_img-img), interpolation="nearest")
 	plt.colorbar()
 	plt.xlabel("RMS Deviation : %1.4f" % (rmsd_test[ii]))
 	

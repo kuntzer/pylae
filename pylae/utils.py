@@ -91,7 +91,6 @@ def mad(nparray):
 	return np.median(np.fabs(nparray - np.median(nparray)))
 
 
-
 def skystats(stamp):
 	"""
 	I measure some statistics of the pixels along the edge of an image or stamp.

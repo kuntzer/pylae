@@ -1,16 +1,22 @@
 import numpy as np
 import utils
 import copy
+import os
 
 
 class AutoEncoder():
 	
-	def __init__(self, name='', rbm_type="gd", verbose=False):
+	def __init__(self, name='ae', rbm_type="gd", directory='', verbose=False):
 		self.name = name
 		self.is_pretrained = False
 		self.is_trained = False
 		self.verbose = verbose
 		self.rbm_type = rbm_type
+		
+		self.filepath = os.path.join(directory, name, rbm_type)
+		if not os.path.isdir(self.filepath):
+			os.makedirs(self.filepath)
+		self.directory = directory
 		
 	def set_autencoder(self, encoder):
 		"""
@@ -89,7 +95,32 @@ class AutoEncoder():
 		
 		self.is_pretrained = True
 		self.set_autencoder(rbms)
-	
+		
+	def save_rbms(self, filepath=None):
+		"""
+		Saves the pre-trained rbms to a pickle file.
+		
+		:param filepath: the path of the file, default path is defined in the init / rmbs.pkl
+		"""
+		if filepath is None:
+			filepath = self.filepath
+		
+		utils.writepickle(self.rbms, os.path.join(filepath, 'rmbs.pkl'))
+		
+	def load_rbms(self, filepath=None):
+		"""
+		Reads the pre-trained rbms from a pickle file.
+		
+		:param filepath: the path of the file, default path is defined in the init / rmbs.pkl
+		"""
+		
+		if filepath is None:
+			filepath = self.filepath
+		
+		rbms = utils.readpickle(os.path.join(filepath, 'rmbs.pkl'))
+		self.set_autencoder(rbms)
+		self.is_pretrained = True
+		
 	def encode(self, data):
 		"""
 		Encodes the data using the encoder
@@ -226,7 +257,7 @@ class AutoEncoder():
 					
 		self.is_trained = True
 
-	def plot_rmsd_history(self):
+	def plot_rmsd_history(self, save=False, filepath=None):
 		import pylab as plt
 				
 		plt.figure()
@@ -239,7 +270,22 @@ class AutoEncoder():
 		plt.legend(loc="best")
 		plt.xlabel("Epoch")
 		plt.ylabel("RMS error")
+		
+		if save:
+			if filepath == None: filepath = os.path.join(self.filepath, 'rmsd_history.png')
+			plt.savefig(filepath)
 		#plt.show()
 		
-	def save(self, fname):
-		utils.writepickle(self, fname)
+	def save(self, filepath=None):
+		utils.writepickle(self, os.path.join(self.filepath, 'ae.pkl'))
+
+	def load(self, filepath=None):
+		
+		if filepath is None:
+			filepath = self.filepath
+		
+		self.load_rbms(filepath)
+		
+		self = utils.readpickle(os.path.join(self.filepath, 'ae.pkl'))
+		self.is_trained = True
+		
