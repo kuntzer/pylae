@@ -2,7 +2,6 @@ import cPickle as pickle
 import gzip
 import os
 import numpy as np
-import galsim
 
 def readpickle(filepath):
 	"""
@@ -67,18 +66,6 @@ def compute_pca(data, n_components=None):
 	pca.fit(data)
 	
 	return pca
-
-def get_ell(img):
-	gps = galsim.Image(img)
-	try:
-		res = galsim.hsm.FindAdaptiveMom(gps)
-		g1=res.observed_shape.g1
-		g2=res.observed_shape.g2
-	except:
-		g1 = 0.#np.nan
-		g2 = 0.#np.nan
-
-	return g1, g2
 
 def mad(nparray):
 	"""

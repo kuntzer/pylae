@@ -3,7 +3,6 @@ import utils
 import copy
 import os
 
-
 class AutoEncoder():
 	
 	def __init__(self, name='ae', rbm_type="gd", directory='', verbose=False):
