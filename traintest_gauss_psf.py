@@ -76,7 +76,7 @@ elif not pre_train and train :
 	rbms = utils.readpickle("%srbms.pkl" % network_name)
 	# An autoencoder instance was created some lines earlier, preparing the other half of the 
 	# network based on layers loaded from the pickle file. 
-	ae.set_autencoder(rbms)
+	ae.set_autoencoder(rbms)
 	ae.is_pretrained = True
 	
 if train:

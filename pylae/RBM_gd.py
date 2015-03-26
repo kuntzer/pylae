@@ -166,6 +166,7 @@ class RBM():
 		print np.shape(self.weights), '< weights'
 		print np.shape(self.hidden_biases), '< bias'
 		"""
+		#print np.shape(m_input), np.shape(self.weights)
 		m_output = np.dot(m_input, self.weights) + self.hidden_biases
 		
 		if(self.hidden_type == "SIGMOID"):

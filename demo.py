@@ -19,11 +19,11 @@ size = np.sqrt(np.shape(data)[1])
 
 # Can we skip some part of the training ?
 pre_train = False
-train = pre_train
+train = True#pre_train
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [256, 64, 16]
+architecture = [10, 9, 8]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
@@ -53,13 +53,14 @@ elif not pre_train and train :
 	rbms = utils.readpickle("%sgdrbms.pkl" % network_name)
 	# An autoencoder instance was created some lines earlier, preparing the other half of the 
 	# network based on layers loaded from the pickle file. 
-	gd.set_autencoder(rbms)
+	gd.set_autoencoder(rbms)
+
 	gd.is_pretrained = True
 	
 	rbms = utils.readpickle("%scd1rbms.pkl" % network_name)
 	# An autoencoder instance was created some lines earlier, preparing the other half of the 
 	# network based on layers loaded from the pickle file. 
-	cd1.set_autencoder(rbms)
+	cd1.set_autoencoder(rbms)
 	cd1.is_pretrained = True
 	
 if train:

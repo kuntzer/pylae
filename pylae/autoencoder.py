@@ -17,7 +17,7 @@ class AutoEncoder():
 			os.makedirs(self.filepath)
 		self.directory = directory
 		
-	def set_autencoder(self, encoder):
+	def set_autoencoder(self, encoder):
 		"""
 		From a list of layers `encoder`, create an autoencoder by adding in a reversed order of the
 		encoder list to the encoder. Swaps the weights and biases too.
@@ -93,7 +93,7 @@ class AutoEncoder():
 			rbms.append(layer)
 		
 		self.is_pretrained = True
-		self.set_autencoder(rbms)
+		self.set_autoencoder(rbms)
 		
 	def save_rbms(self, filepath=None):
 		"""
