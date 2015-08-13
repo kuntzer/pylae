@@ -145,7 +145,7 @@ class AutoEncoder():
 			data = layer.feedforward(data)
 			
 		return data
-	
+
 	def backpropagation(self, data, iterations=500, learn_rate=0.13, momentum_rate=0.83, 
 					max_epoch_without_improvement=30, regularisation = 0., sparsity=None, beta=3.,
 					early_stop=True):
@@ -323,4 +323,71 @@ class AutoEncoder():
 		
 		self = utils.readpickle(os.path.join(self.filepath, 'ae.pkl'))
 		self.is_trained = True
+		
+	def visualise(self, layer):
+		"""
+		void DisplayWeights(const mat &weights)
+{
+    // Scale so that negative values range from [0, 128] and positive from [128, 255]
+
+    int width = sqrt(weights.n_cols); // assume square image
+
+    for(unsigned int j=0; j < weights.n_rows; j++) {
+        double a = min(weights.row(j));
+        double b = max(weights.row(j));
+        double s = max(fabs(a), fabs(b));
+
+        mat tmp = (weights.row(j) / s)*127 + 128;
+
+        cv::Mat img(width, width, CV_8U);
+
+        for(int k=0; k < width*width; k++) {
+            int v = tmp(k);
+
+            if(v < 0) v = 0;
+            if(v >= 256) v = 255;
+
+            img.at<uchar>(k) = v;
+        }
+
+        cv::resize(img, img, cv::Size(width*10, width*10), 0, 0, cv::INTER_NEAREST);
+        cv::imshow("main", img);
+        cv::waitKey(0);
+    }
+}
+		"""
+		import pylab as plt
+		print self.mid
+		#if layer >= self.mid or layer < 1: 
+		#	raise ValueError("Wrong layer number")
+			
+		
+		W = self.layers[layer].weights
+		print W
+		nin, nout = np.shape(W)
+		
+		snout = int(np.sqrt(nout))
+		f, axes = plt.subplots(snout, snout)#, sharex='col', sharey='row')
+		
+		x = 0
+		y = 0
+		for ii in range(nout):
+			
+			img = W[:,ii] / np.sqrt(np.sum(W[:,ii]**2))
+			
+			axes[x, y].imshow(img.reshape([np.sqrt(nin),np.sqrt(nin)]), interpolation="nearest", cmap=plt.get_cmap('gray'))
+			
+			x += 1
+			if x >= np.sqrt(nout):
+				x = 0
+				y += 1
+			 
+			"""print ii
+			plt.figure()
+			print np.shape(img)
+			print np.sqrt(nout)
+			plt"""
+		plt.setp([[a.get_xticklabels() for a in b] for b in axes[:,]], visible=False)
+		plt.setp([[a.get_yticklabels() for a in b] for b in axes[:,]], visible=False)
+		
 		
