@@ -19,14 +19,16 @@ size = np.sqrt(np.shape(data)[1])
 
 # Can we skip some part of the training ?
 pre_train = False
-train = True#pre_train
+train = False#pre_train
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
 architecture = [144, 64, 9]
+#architecture = [144]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
+#layers_type = ["SIGMOID", "LINEAR"]
 
 # Let's go
 gd = pylae.autoencoder.AutoEncoder('demo_gradientdescent', rbm_type="gd")
@@ -65,16 +67,16 @@ elif not pre_train and train :
 	
 if train:
 	print 'Starting backpropagation'
-	#gd.backpropagation(data, iterations=2000, learn_rate=0.2, momentum_rate=0.9, regularisation=0.0)
-	gd.backpropagation(data, iterations=1000, learn_rate=0.2, momentum_rate=0.9, regularisation=0.001,
-					sparsity=0.2)
+	gd.backpropagation(data, iterations=2000, learn_rate=0.2, momentum_rate=0.9, regularisation=0.0)
+	#gd.backpropagation(data, iterations=1000, learn_rate=0.2, momentum_rate=0.9, regularisation=0.001,
+	#				sparsity=0.2)
 
 	gd.save("%sgdautoencoder.pkl" % network_name)
 	
-	#cd1.backpropagation(data, iterations=2000, learn_rate=0.2, momentum_rate=0.9, regularisation=0.001,
+	cd1.backpropagation(data, iterations=2000, learn_rate=0.2, momentum_rate=0.9, regularisation=0.00)#1,
 	#				sparsity=0.2)
 
-	#cd1.save("%scd1autoencoder.pkl" % network_name)
+	cd1.save("%scd1autoencoder.pkl" % network_name)
 	
 	os.system("/usr/bin/canberra-gtk-play --id='complete-media-burn'")
 
@@ -87,9 +89,12 @@ test = copy.deepcopy(datall[700:,:])
 np.random.shuffle(test)
 
 reconstruc = gd.feedforward(test)
-gd.visualise(0)
+#gd.visualise(0)
 
 reconstruc_cd1 = cd1.feedforward(test)
+#cd1.visualise(0)
+#plt.show()
+#exit()
 
 # Compute the RMSD error for the training set
 rmsd = utils.compute_rmsd(test, reconstruc)

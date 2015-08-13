@@ -357,13 +357,11 @@ class AutoEncoder():
 }
 		"""
 		import pylab as plt
-		print self.mid
 		#if layer >= self.mid or layer < 1: 
 		#	raise ValueError("Wrong layer number")
 			
 		
 		W = self.layers[layer].weights
-		print W
 		nin, nout = np.shape(W)
 		
 		snout = int(np.sqrt(nout))
