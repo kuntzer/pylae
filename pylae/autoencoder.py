@@ -167,7 +167,7 @@ class AutoEncoder():
 		momentum_rate_save = momentum_rate
 		
 		for epoch in range(iterations) :
-			a_nl = self.feedforward(data)
+			a_l = self.feedforward(data)
 			# Start backpropagation
 			if epoch > 15:
 				momentum_rate = momentum_rate_save
@@ -175,21 +175,16 @@ class AutoEncoder():
 				momentum_rate = 0.5
 			
 			# Initialise the accumulated derivating using square error E = 0.5*(T-Y)^2
-			diff_y_an = data - a_nl
+			diff_y_an = data - a_l
 			delta =  -diff_y_an # dE/dz
 			rmsd = np.sqrt(np.mean(delta*delta)) / 2.
 			
 			# Backpropagate through the top to bottom
 			for jj in range(self.mid * 2 - 1, -1, -1):
 				
-				#rho_hat = np.mean(diff_y_an, axis=0)
+				rho_hat = np.mean(delta, axis=0)
 				#print np.shape(rho_hat), 
 				#print np.shape(delta), '<<<'
-
-				#if sparsity is not None and jj == self.mid * 2 - 1:
-				#	KL = - sparsity / rho_hat + (1. - sparsity) / (1. - rho_hat)
-				#else:
-				#	KL = 0.
 
 				layer = self.layers[jj]
 				
@@ -199,13 +194,23 @@ class AutoEncoder():
 				if layer.hidden_type == "SIGMOID" :
 					# later part is error * gradient of cost function (derivative of sigmoid s(x) = s(x){1-s(x)}
 					sigmoid_deriv = (1.0 - layer.output) * layer.output
+					#print sparsity, np.mean(rho_hat)
 					delta = delta * sigmoid_deriv
-					#spar = beta * KL * (1.0 - layer.output) * layer.output
+					if sparsity is not None and jj == self.mid * 2 - 1 and jj < 0:
+						KL = - sparsity / rho_hat# + (1. - sparsity) / (1. - rho_hat)
+						#print KL
+						#exit()
+						spar = beta * KL * (1.0 - layer.output) * layer.output
+						spar = np.dot(layer.input.T, spar)
+					else:
+						spar = 0.
+
+					
 					grad_bias = np.mean(delta, axis=0)# dJ/dB is error only, no regularisation for biases
 					
 				elif layer.hidden_type == "LINEAR":
 					grad_bias = np.mean(layer.output - layer.hidden_biases, axis=0)/N
-					#spar = 0.#np.dot(KL, layer.output)
+					spar = 0.
 					
 					delta = delta
 				else :
@@ -216,7 +221,10 @@ class AutoEncoder():
 				#print np.shape(regularisation * layer.weights)
 				#print np.shape(spar),
 				#print np.shape(delta)
-				grad = np.dot(layer.input.T, delta)/N + regularisation * layer.weights # dz/dW partial derivative for weights
+				#print np.shape(layer.input.T),
+				
+				#print np.shape(spar)
+				grad = np.dot(layer.input.T, delta)/N + regularisation * layer.weights + spar # dz/dW partial derivative for weights
 				#print np.shape(grad)
 				#exit()
 				#print spar

@@ -65,13 +65,13 @@ elif not pre_train and train :
 	
 if train:
 	print 'Starting backpropagation'
-	gd.backpropagation(data, iterations=2000, learn_rate=0.01, momentum_rate=0.9, regularisation=0.0)
-	#gd.backpropagation(data, iterations=1000, learn_rate=0.0075, momentum_rate=0.9, regularisation=0.001,
-	#				sparsity=0.05)
+	#gd.backpropagation(data, iterations=2000, learn_rate=0.2, momentum_rate=0.9, regularisation=0.0)
+	gd.backpropagation(data, iterations=1000, learn_rate=0.2, momentum_rate=0., regularisation=0.,#0001,
+					sparsity=0.2)
 
-	#gd.save("%sgdautoencoder.pkl" % network_name)
+	gd.save("%sgdautoencoder.pkl" % network_name)
 	
-	#cd1.backpropagation(data, iterations=2000, learn_rate=0.0075, momentum_rate=0.9, regularisation=0.001,
+	#cd1.backpropagation(data, iterations=2000, learn_rate=0.2, momentum_rate=0.9, regularisation=0.0)
 	#				sparsity=1.)
 
 	#cd1.save("%scd1autoencoder.pkl" % network_name)
