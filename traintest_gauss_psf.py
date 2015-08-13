@@ -1,11 +1,12 @@
 import pylae
 import pylae.utils as utils
+import utils_galsim as ug
 
 import numpy as np
 import pylab as plt
 import os
 
-run_name = 'smalldev-noisy'
+run_name = 'smalldev-verynoisy'
 network_name = run_name
 # Load the data and remember the size of the data (assume a square image here)
 # ! The data *must* be normalised here
@@ -23,7 +24,7 @@ truth = np.loadtxt("data/truth-%s.dat" % run_name, delimiter=",")
 
 # Can we skip some part of the training ?
 pre_train = False
-train = False
+train = True
 
 # Add the mean of the residues ?
 do_corr = False
@@ -35,8 +36,9 @@ fancy = False
 architecture = [2000, 1000, 500, 100, 15]
 architecture = [960, 480, 240, 120, 60, 30, 15]
 #architecture = [4287, 15]
-architecture = [700, 300, 128]
-#architecture = [128, 15]
+architecture = [512, 128, 32]
+#architecture = [256, 32, 2]
+architecture = [512, 32]
 pca_nb_components = architecture[-1]
 
 # The layers_type must have len(architecture)+1 item.
@@ -45,6 +47,7 @@ layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
 #layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
+layers_type = ["SIGMOID", "SIGMOID", "LINEAR"]
 # Separate into training and testing data
 datasize = np.shape(dataset)[0]
 datasize = 2000#10000
@@ -82,6 +85,7 @@ elif not pre_train and train :
 if train:
 	print 'Starting backpropagation'
 	ae.backpropagation(train_data, iterations=1000, learn_rate=0.13, momentum_rate=0.83)
+	#ae.backpropagation(train_data, iterations=1000, learn_rate=0.013, momentum_rate=0.83, regularisation=0.002, sparsity=0.2)
 
 	ae.save("%sautoencoder.pkl" % network_name)
 	
@@ -114,7 +118,7 @@ truth_train = truth[0:ind]
 truth_test = truth[ind:datasize]
 
 # Build PCA:
-if train :
+if train or True :
 	pca = utils.compute_pca(train_data, n_components=pca_nb_components)
 	utils.writepickle(pca, "%spca.pkl" % network_name)
 else: 
@@ -148,31 +152,31 @@ noise_test = []
 noise_test_pca = []
 for ii in range(ind):
 	img = train_data[ii].reshape(size,size)
-	g1, g2 = utils.get_ell(img)
+	g1, g2 = ug.get_ell(img)
 	train_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
 	img = reconstruc[ii].reshape(size,size) + corr
-	g1, g2 = utils.get_ell(img)
+	g1, g2 = ug.get_ell(img)
 	recon_train_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	noise_train.append(utils.skystats(img)['mad'])
 	
 	img = recon_pca[ii].reshape(size,size)
-	g1, g2 = utils.get_ell(img)
+	g1, g2 = ug.get_ell(img)
 	train_pca_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
 	if ii >= datasize - ind: continue
 		
 	img = test_data[ii].reshape(size,size)
-	g1, g2 = utils.get_ell(img)
+	g1, g2 = ug.get_ell(img)
 	test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	
 	img = reconstructest[ii].reshape(size,size) + corr
-	g1, g2 = utils.get_ell(img)
+	g1, g2 = ug.get_ell(img)
 	recon_test_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	noise_test.append(utils.skystats(img)['mad'])
 	
 	img = recont_pca[ii].reshape(size,size)
-	g1, g2 = utils.get_ell(img)
+	g1, g2 = ug.get_ell(img)
 	test_pca_ell.append([g1, g2, np.sqrt(g1*g1 + g2*g2)])
 	noise_test_pca.append(utils.skystats(img)['mad'])
 	
@@ -186,10 +190,16 @@ test_pca_ell = np.asarray(test_pca_ell)
 print "ELL ERROR ON TRAIN DATA"
 pca_ell_error = train_pca_ell[:,2] - train_ell[:,2]
 rms_pca_err = np.sqrt(pca_ell_error*pca_ell_error)
+pca_tot_err_train = np.abs(train_pca_ell[:,0]-truth[0:ind,0]) + np.abs(train_pca_ell[:,1]-truth[0:ind,1])
 ae_ell_error = recon_train_ell[:,2] - train_ell[:,2]
 rms_ae_err = np.sqrt(ae_ell_error*ae_ell_error)
+ae_tot_err_train = np.abs(recon_train_ell[:,0]-truth[0:ind,0]) + np.abs(recon_train_ell[:,1]-truth[0:ind,1])
 
 tru_ell = np.sqrt(truth[0:ind,0]*truth[0:ind,0] + truth[0:ind,1]*truth[0:ind,1])
+
+pca_tot_err_comp_train = np.abs(train_pca_ell[:,0:2]-truth[:ind,0:2])
+ae_tot_err_comp_train = np.abs(recon_train_ell[:,0:2]-truth[:ind,0:2])
+
 gs_ell_error = train_ell[:,2] - tru_ell
 gs_error = np.sqrt(np.mean(gs_ell_error * gs_ell_error))
 
@@ -199,6 +209,10 @@ gs_error = np.sqrt(np.mean(gs_error * gs_error))
 print 'gs error :', gs_error
 print 'ae error :', ae_error
 print 'pca error:', pca_error
+print 'abs ae err:', np.mean(ae_tot_err_train)
+print 'median abs ae err:', np.median(ae_tot_err_train)
+print 'abs pca err:', np.mean(pca_tot_err_train)
+print 'median abs pca err:', np.median(pca_tot_err_train)
 
 print "ELL ERROR ON TEST DATA"
 pca_ell_error = test_pca_ell[:,2] - test_ell[:,2]
@@ -207,6 +221,12 @@ ae_ell_error = recon_test_ell[:,2] - test_ell[:,2]
 rms_ae_err = np.sqrt(ae_ell_error*ae_ell_error)
 
 tru_ell = np.sqrt(truth[ind:datasize,0]*truth[ind:datasize,0] + truth[ind:datasize,1]*truth[ind:datasize,1])
+
+pca_tot_err = np.abs(test_pca_ell[:,0]-truth[ind:datasize,0]) + np.abs(test_pca_ell[:,1]-truth[ind:datasize,1])
+ae_tot_err = np.abs(recon_test_ell[:,0]-truth[ind:datasize,0]) + np.abs(recon_test_ell[:,1]-truth[ind:datasize,1])
+pca_tot_err_comp = np.abs(test_pca_ell[:,0:2]-truth[ind:datasize,0:2])
+ae_tot_err_comp = np.abs(recon_test_ell[:,0:2]-truth[ind:datasize,0:2])
+
 gs_ell_error = test_ell[:,2] - tru_ell
 gs_error = np.sqrt(np.mean(gs_ell_error * gs_ell_error))
 
@@ -216,6 +236,10 @@ gs_error = np.sqrt(np.mean(gs_error * gs_error))
 print 'gs error :', gs_error
 print 'ae error :', ae_error
 print 'pca error:', pca_error
+print 'abs ae err:', np.mean(ae_tot_err)
+print 'median abs ae err:', np.median(ae_tot_err)
+print 'abs pca err:', np.mean(pca_tot_err)
+print 'median abs pca err:', np.median(pca_tot_err)
 
 # Show the figures for the distribution of the RMSD and the learning curves
 if fancy : pylae.figures.set_fancy()
@@ -295,14 +319,91 @@ print 'ae absolute error :', ae_error
 print 'pca absolute error:', pca_error
 
 plt.figure()
-plt.hist(rms_pca_err, label="PCA", alpha=0.5)
-plt.hist(rms_ae_err, label="Auto-encoder", alpha=0.5)
+plt.scatter(tru_ell, pca_tot_err, label="PCA", color="b")
+plt.scatter(tru_ell, ae_tot_err, label="AE", color="g")
 
-plt.axvline(pca_error, color="blue", lw=2)
-plt.axvline(ae_error, color="green", lw=2)
-plt.xlabel("RMS(Model - True)")
+plt.axhline(np.mean(pca_tot_err), color="blue", lw=2)
+plt.axhline(np.mean(ae_tot_err), color="green", lw=2)
+
+plt.axhline(np.median(pca_tot_err), color="blue", lw=2, ls="--")
+plt.axhline(np.median(ae_tot_err), color="green", lw=2, ls="--")
+
+plt.legend(loc="best")
+plt.ylabel(r"$|e_{r1}^2 - e_{t1}^2| + |e_{r2}^2 - e_{t2}^2|$")
+plt.xlabel("Ellipticity of true data")
+plt.grid()
+
+plt.figure()
+plt.hist(pca_tot_err, 20, label="PCA", alpha=0.5)
+plt.hist(ae_tot_err, 20, label="Auto-encoder", alpha=0.5)
+
+plt.axvline(np.mean(pca_tot_err), color="blue", lw=2)
+plt.axvline(np.mean(ae_tot_err), color="green", lw=2)
+
+plt.axvline(np.median(pca_tot_err), color="blue", lw=2, ls="--")
+plt.axvline(np.median(ae_tot_err), color="green", lw=2, ls="--")
+plt.xlabel(r"$|e_{r1} - e_{t1}| + |e_{r2} - e_{t2}|$")
 plt.legend(loc="best")
 plt.grid()
+
+plt.figure()
+plt.title('Test data')
+plt.scatter(truth[ind:datasize,1], pca_tot_err_comp[:,1], label="PCA", color="b")
+plt.scatter(truth[ind:datasize,1], ae_tot_err_comp[:,1], label="AE", color="g")
+
+plt.axhline(np.mean(pca_tot_err_comp[:,1]), color="blue", lw=2)
+plt.axhline(np.mean(ae_tot_err_comp[:,1]), color="green", lw=2)
+plt.legend(loc="best")
+plt.ylabel(r"$|e_{r1} - e_{t1}|$")
+plt.xlabel("Ellipticity of true data")
+plt.grid()
+
+plt.figure()
+plt.title('Test data')
+plt.scatter(truth[ind:datasize,0], pca_tot_err_comp[:,0], label="PCA", color="b")
+plt.scatter(truth[ind:datasize,0], ae_tot_err_comp[:,0], label="AE", color="g")
+
+plt.axhline(np.mean(pca_tot_err_comp[:,0]), color="blue", lw=2)
+plt.axhline(np.mean(ae_tot_err_comp[:,0]), color="green", lw=2)
+plt.legend(loc="best")
+plt.ylabel(r"$|e_{r2} - e_{t2}|$")
+plt.xlabel("Ellipticity of true data")
+plt.grid()
+
+plt.figure()
+plt.title('Train data')
+plt.scatter(truth[0:ind,1], pca_tot_err_comp_train[:,1], label="PCA", color="b")
+plt.scatter(truth[0:ind,1], ae_tot_err_comp_train[:,1], label="AE", color="g")
+
+plt.axhline(np.mean(pca_tot_err_comp_train[:,1]), color="blue", lw=2)
+plt.axhline(np.mean(ae_tot_err_comp_train[:,1]), color="green", lw=2)
+plt.legend(loc="best")
+plt.ylabel(r"$|e_{r2} - e_{t2}|$")
+plt.xlabel("Ellipticity of true data")
+plt.grid()
+
+plt.figure()
+plt.title('Train data')
+plt.scatter(truth[0:ind,0], pca_tot_err_comp_train[:,0], label="PCA", color="b")
+plt.scatter(truth[0:ind,0], ae_tot_err_comp_train[:,0], label="AE", color="g")
+
+plt.axhline(np.mean(pca_tot_err_comp_train[:,0]), color="blue", lw=2)
+plt.axhline(np.mean(ae_tot_err_comp_train[:,0]), color="green", lw=2)
+plt.legend(loc="best")
+plt.ylabel(r"$|e_{r1} - e_{t1}|$")
+plt.xlabel("Ellipticity of true data")
+plt.grid()
+
+plt.figure()
+plt.title('Dataset')
+plt.scatter(truth[0:ind,0], truth[0:ind,1], label="train", color="r")
+plt.scatter(truth[ind:datasize,0], truth[ind:datasize,1], label="test", color="k")
+plt.legend(loc="best")
+plt.ylabel("e1")
+plt.xlabel("e2")
+plt.grid()
+
+
 plt.show()
 
 
@@ -319,7 +420,7 @@ for ii in range(10):
 	recont_pca_img = recon_pca[ii].reshape(size,size)
 	"""
 	try:
-		dg1, dg2 = utils.get_ell(img)
+		dg1, dg2 = ug.get_ell(img)
 	except :
 		dg1 = 20
 		dg2 = 20
@@ -328,7 +429,7 @@ for ii in range(10):
 	rg1, rg2, rg = recon_test_ell[ii]
 	rn = utils.skystats(recon)["mad"]
 
-	pg1, pg2 = utils.get_ell(recont_pca_img)
+	pg1, pg2 = ug.get_ell(recont_pca_img)
 	pg1, pg2, pg = test_pca_ell[ii]
 	pn = utils.skystats(recont_pca_img)["mad"]
 	
@@ -343,13 +444,15 @@ for ii in range(10):
 	plt.title("Data")
 	plt.subplot(2, 3, 2)
 	plt.imshow((recon), interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng=%1.4f\n\nnoise = %1.4f" % (rg1, rg2, np.hypot(rg1, rg2), rn), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f (%1.4f)\ng2 = %1.4f (%1.4f)\ng=%1.4f (%1.4f)\n\nnoise = %1.4f" % (
+		rg1, rg1-tg1, rg2,rg2-tg2, np.hypot(rg1, rg2), np.hypot(rg1, rg2)-np.hypot(tg1, tg2), rn), va="top")
 	#plt.colorbar()
 	plt.title("Auto-encoder")
 	plt.subplot(2, 3, 3)
 	#plt.imshow((img - recon), interpolation="nearest")
 	plt.imshow(recont_pca_img, interpolation="nearest")
-	plt.text(0,size*1.2,"g1 = %1.4f\ng2 = %1.4f\ng = %1.4f\n\nnoise = %1.4f" % (pg1, pg2, np.hypot(pg1, pg2), pn), va="top")
+	plt.text(0,size*1.2,"g1 = %1.4f (%1.4f)\ng2 = %1.4f (%1.4f)\ng=%1.4f (%1.4f)\n\nnoise = %1.4f" % (
+		pg1, pg1-tg1, pg2, pg2-tg2, np.hypot(pg1, pg2), np.hypot(pg1, pg2)-np.hypot(tg1, tg2), pn), va="top")
 	#plt.colorbar()
 	plt.title("PCA")
 	
@@ -359,11 +462,11 @@ for ii in range(10):
 	
 	plt.subplot(2, 3, 5)
 	plt.title("Residues AE")
-	plt.imshow((recon - img), interpolation="nearest")
+	plt.imshow((recon - truimg), interpolation="nearest")
 	plt.colorbar()
 	plt.subplot(2, 3, 6)
 	plt.title("Residues PCA")
-	plt.imshow((recont_pca_img-img), interpolation="nearest")
+	plt.imshow((recont_pca_img-truimg), interpolation="nearest")
 	plt.colorbar()
 	plt.xlabel("RMS Deviation : %1.4f" % (rmsd_test[ii]))
 	

@@ -23,7 +23,7 @@ train = True#pre_train
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.
-architecture = [10, 9, 8]
+architecture = [128, 64, 8]
 # The layers_type must have len(architecture)+1 item.
 # TODO: explain why and how to choose.
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "LINEAR"]
@@ -65,13 +65,16 @@ elif not pre_train and train :
 	
 if train:
 	print 'Starting backpropagation'
-	gd.backpropagation(data, iterations=2000, learn_rate=0.01, momentum_rate=0.9)
+	gd.backpropagation(data, iterations=2000, learn_rate=0.01, momentum_rate=0.9, regularisation=0.0)
+	#gd.backpropagation(data, iterations=1000, learn_rate=0.0075, momentum_rate=0.9, regularisation=0.001,
+	#				sparsity=0.05)
 
-	gd.save("%sgdautoencoder.pkl" % network_name)
+	#gd.save("%sgdautoencoder.pkl" % network_name)
 	
-	cd1.backpropagation(data, iterations=2000, learn_rate=0.1, momentum_rate=0.9)
+	#cd1.backpropagation(data, iterations=2000, learn_rate=0.0075, momentum_rate=0.9, regularisation=0.001,
+	#				sparsity=1.)
 
-	cd1.save("%scd1autoencoder.pkl" % network_name)
+	#cd1.save("%scd1autoencoder.pkl" % network_name)
 	
 	os.system("/usr/bin/canberra-gtk-play --id='complete-media-burn'")
 
@@ -93,8 +96,10 @@ rmsd = utils.compute_rmsd(test, reconstruc)
 plt.figure()
 plt.hist(rmsd)
 
+"""
 gd.plot_rmsd_history()
 cd1.plot_rmsd_history()
+"""
 
 pca = utils.compute_pca(data, n_components=architecture[-1])
 recont_pca = pca.transform(test)

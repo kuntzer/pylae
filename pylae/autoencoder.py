@@ -49,7 +49,7 @@ class AutoEncoder():
 		for layer in self.layers :
 			#print layer.hidden_nodes, '-'*30
 			data = layer.feedforward_memory(data)
-			
+
 		return data
 	
 	def pre_train(self, data, architecture, layers_type, learn_rate={'SIGMOID':3.4e-3, 'LINEAR':3.4e-4},
@@ -147,7 +147,8 @@ class AutoEncoder():
 		return data
 	
 	def backpropagation(self, data, iterations=500, learn_rate=0.13, momentum_rate=0.83, 
-					max_epoch_without_improvement=30, regularisation = 0., early_stop=True):
+					max_epoch_without_improvement=30, regularisation = 0., sparsity=None, beta=3.,
+					early_stop=True):
 		
 		if not self.is_pretrained: 
 			raise RuntimeError("The autoencoder is not pre-trained.")
@@ -166,8 +167,7 @@ class AutoEncoder():
 		momentum_rate_save = momentum_rate
 		
 		for epoch in range(iterations) :
-			X = self.feedforward(data)
-			
+			a_nl = self.feedforward(data)
 			# Start backpropagation
 			if epoch > 15:
 				momentum_rate = momentum_rate_save
@@ -175,31 +175,58 @@ class AutoEncoder():
 				momentum_rate = 0.5
 			
 			# Initialise the accumulated derivating using square error E = 0.5*(T-Y)^2
-			accum_deriv =  -(data - X); # dE/dz
-			rmsd = np.sqrt(np.mean(accum_deriv*accum_deriv))
+			diff_y_an = data - a_nl
+			delta =  -diff_y_an # dE/dz
+			rmsd = np.sqrt(np.mean(delta*delta)) / 2.
 			
 			# Backpropagate through the top to bottom
 			for jj in range(self.mid * 2 - 1, -1, -1):
+				
+				#rho_hat = np.mean(diff_y_an, axis=0)
+				#print np.shape(rho_hat), 
+				#print np.shape(delta), '<<<'
+
+				#if sparsity is not None and jj == self.mid * 2 - 1:
+				#	KL = - sparsity / rho_hat + (1. - sparsity) / (1. - rho_hat)
+				#else:
+				#	KL = 0.
+
 				layer = self.layers[jj]
+				
+				#print np.shape(KL)
+				#print np.shape((1.0 - layer.output) * layer.output)
+				#print jj, 
 				if layer.hidden_type == "SIGMOID" :
-					# later part is error * gradient of cost function
-					accum_deriv = accum_deriv * (1.0 - layer.output) * layer.output
-					grad_bias = np.mean(accum_deriv, axis=0)# dJ/dB is error only, nut regularisation for biases		
-				elif layer.hidden_type == "LINEAR" :
+					# later part is error * gradient of cost function (derivative of sigmoid s(x) = s(x){1-s(x)}
+					sigmoid_deriv = (1.0 - layer.output) * layer.output
+					delta = delta * sigmoid_deriv
+					#spar = beta * KL * (1.0 - layer.output) * layer.output
+					grad_bias = np.mean(delta, axis=0)# dJ/dB is error only, no regularisation for biases
+					
+				elif layer.hidden_type == "LINEAR":
 					grad_bias = np.mean(layer.output - layer.hidden_biases, axis=0)/N
+					#spar = 0.#np.dot(KL, layer.output)
+					
+					delta = delta
 				else :
 					raise ValueError("Type of layer not recognised")
 
-				grad = np.dot(layer.input.T, accum_deriv)/N + regularisation * layer.weights # dz/dW partial derivative for weights
-					
-				
+				#print KL
+				#print np.shape(KL),
+				#print np.shape(regularisation * layer.weights)
+				#print np.shape(spar),
+				#print np.shape(delta)
+				grad = np.dot(layer.input.T, delta)/N + regularisation * layer.weights # dz/dW partial derivative for weights
+				#print np.shape(grad)
+				#exit()
+				#print spar
 				if np.any(grad) > 1e9 or np.any(grad) is np.nan :
 					raise ValueError("Weights have blown to infinite! \
 						Try reducing the learning rate.")
 					
 				# no point accumulating gradients for the first layer
 				if jj > 0:
-					accum_deriv = np.dot(accum_deriv, layer.weights.T) 
+					delta = np.dot(delta, layer.weights.T) 
 
 				if momentum[jj] is None:
 					momentum[jj] = grad
@@ -213,6 +240,7 @@ class AutoEncoder():
 
 				layer.weights -= learn_rate*momentum[jj]
 				layer.hidden_biases -= learn_rate*momentum_bias[jj]
+			#exit()	
 				#layer.
 			if best_rmsd is not None:	
 				rsmd_grad = (rmsd - best_rmsd) / best_rmsd
