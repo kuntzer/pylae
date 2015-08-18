@@ -106,3 +106,15 @@ def skystats(stamp):
 		"std":np.std(edgepixels), "mad": 1.4826 * mad(edgepixels),
 		"mean":np.mean(edgepixels), "med":np.median(edgepixels)
 		}
+	
+	
+def sigmoid(x):
+	return 1. / (1. + np.exp(-x))
+
+
+def sigmoid_prime(x):
+	return sigmoid(x) * (1. - sigmoid(x))
+
+
+def KL_divergence(x, y):
+	return x * np.log(x / y) + (1. - x) * np.log((1. - x) / (1. - y))

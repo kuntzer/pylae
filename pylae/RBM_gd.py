@@ -1,4 +1,5 @@
 import numpy as np
+import utils
 
 class RBM():
 	def __init__(self, hidden_nodes, visible_type, hidden_type, mini_batch, iterations, 
@@ -67,7 +68,7 @@ class RBM():
 				## START POSITIVE PHASE ##################################################
 				nw = np.dot(data, vishid) + np.tile(hidbiases, (N, 1))
 				if self.hidden_type == "SIGMOID":
-					pos_hidprobs = self._sigmoid(nw)
+					pos_hidprobs = utils.sigmoid(nw)
 				elif self.hidden_type == "LINEAR": 
 					pos_hidprobs = nw
 				
@@ -89,14 +90,14 @@ class RBM():
 				
 				# TODO: Do this only if visible type is sigmoid see C++ line 262 and next
 				if self.visible_type == "SIGMOID":
-					neg_data = self._sigmoid(nw)
+					neg_data = utils.sigmoid(nw)
 				else:
 					neg_data = nw
 				
 				nw = np.dot(neg_data, vishid) + np.tile(hidbiases, (N, 1))
 
 				if self.hidden_type == "SIGMOID":
-					neg_hidprobs = self._sigmoid(nw)
+					neg_hidprobs = utils.sigmoid(nw)
 				else: 
 					neg_hidprobs = nw
 				
@@ -159,7 +160,10 @@ class RBM():
 		else :
 			self.rmsd_history = rmsd_history
 		
-	def feedforward(self, data):	
+	def compute_layer(self, m_input):
+		return np.dot(m_input, self.weights) + self.hidden_biases
+		
+	def feedforward(self, data, mem=False):	
 		m_input = data 
 		"""
 		print np.shape(m_input), '< data'
@@ -167,22 +171,21 @@ class RBM():
 		print np.shape(self.hidden_biases), '< bias'
 		"""
 		#print np.shape(m_input), np.shape(self.weights)
-		m_output = np.dot(m_input, self.weights) + self.hidden_biases
+		m_output = self.compute_layer(m_input)
+		
+		if mem: self.activation = m_output
 		
 		if(self.hidden_type == "SIGMOID"):
-			m_output = self._sigmoid(m_output)
+			m_output = utils.sigmoid(m_output)
 			
 		return m_output
 	
 	def feedforward_memory(self, data):
-		m_output = self.feedforward(data)
+		m_output = self.feedforward(data, mem = True)
 		self.output = m_output
 		self.input = data
 		
 		return m_output
-	
-	def _sigmoid(self, x):
-		return 1.0 / (1.0 + np.exp(-x))
 	
 	def plot_rmsd_history(self):
 		import pylab as plt

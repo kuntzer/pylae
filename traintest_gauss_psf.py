@@ -23,7 +23,7 @@ truth = np.loadtxt("data/truth-%s.dat" % run_name, delimiter=",")
 
 
 # Can we skip some part of the training ?
-pre_train = False
+pre_train = True
 train = True
 
 # Add the mean of the residues ?
@@ -73,10 +73,11 @@ if pre_train:
 				initialmomentum=0.53,finalmomentum=0.93, iterations=2000, mini_batch=100, regularisation=0.002)
 	
 	# Save the resulting layers
-	utils.writepickle(ae.rbms, "%srbms.pkl" % network_name)
+	utils.writepickle(ae.rbms, "%s/gd/rbms.pkl" % network_name)
 	
 elif not pre_train and train :
-	rbms = utils.readpickle("%srbms.pkl" % network_name)
+	rbms = utils.readpickle("%s/gd/rbms.pkl" % network_name)
+	
 	# An autoencoder instance was created some lines earlier, preparing the other half of the 
 	# network based on layers loaded from the pickle file. 
 	ae.set_autoencoder(rbms)
@@ -87,12 +88,16 @@ if train:
 	ae.backpropagation(train_data, iterations=1000, learn_rate=0.13, momentum_rate=0.83)
 	#ae.backpropagation(train_data, iterations=1000, learn_rate=0.013, momentum_rate=0.83, regularisation=0.002, sparsity=0.2)
 
-	ae.save("%sautoencoder.pkl" % network_name)
+	ae.save()
 	
 	os.system("/usr/bin/canberra-gtk-play --id='complete-media-burn'")
 
 else :
-	ae = utils.readpickle("%sautoencoder.pkl" % network_name)
+	ae = utils.readpickle("%s/gd/ae.pkl" % network_name)
+
+ae.display_network()
+plt.show()
+exit()
 
 print "Training complete."
 # Use the training data as if it were a training set
