@@ -19,7 +19,7 @@ size = np.sqrt(np.shape(data)[1])
 
 # Can we skip some part of the training ?
 pre_train = False
-train = True#pre_train
+train = False#pre_train
 
 # Definition of the first half of the autoencoder -- the encoding bit.
 # The deeper the architecture the more complex features can be learned.

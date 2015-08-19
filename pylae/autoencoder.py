@@ -128,7 +128,7 @@ class AutoEncoder():
 		:returns: encoded data
 		"""
 		for layer in self.layers[:self.mid] :
-			print "encoding, for dimensions ", layer.weights.shape
+			print "encoding, for dimensions", layer.weights.shape
 			data = layer.feedforward(data)
 			
 		return data
@@ -141,7 +141,7 @@ class AutoEncoder():
 		:returns: decoded data
 		"""
 		for layer in self.layers[self.mid:] :
-			print "decoding, for dimensions ", layer.weights.shape
+			print "decoding, for dimensions", layer.weights.shape
 			data = layer.feedforward(data)
 			
 		return data
@@ -494,19 +494,33 @@ class AutoEncoder():
 		h = self.feedforward(data.T).T
 
 		# Sparsity
-		#rho_hat = np.mean(self.layers[0].output.T, axis=1)
-		#rho = np.tile(sparsity, self.layers[jj].hidden_nodes)
+		sparsity_cost = 0
 		
 		# Back-propagation
 		delta = -(data - h)
 		wgrad = []
 		bgrad = []
+		
+		
 		for jj in range(self.mid * 2 - 1, -1, -1):
 
 			if jj < self.mid * 2 - 1:
-				rho_hat = np.mean(self.layers[0].output.T, axis=1)
-				rho = np.tile(sparsity, self.layers[jj].hidden_nodes)
+				# TODO: Sparsity: do we want it at every (hidden) layer ?? 
+				"""print jj
+				print np.shape(self.layers[2].output.T)
+				
+				print hn
+				print self.layers[2].hidden_nodes
+				print m 
+				exit()"""
+				hn = self.layers[jj].output.T.shape[0]
+				#print hn, np.shape(self.layers[2].output.T)
+				rho_hat = np.mean(self.layers[jj].output.T, axis=1)
+				rho = np.tile(sparsity, hn)
+				#print np.shape(rho_hat), rho.shape
 				sparsity_delta = np.tile(- rho / rho_hat + (1 - rho) / (1 - rho_hat), (m, 1)).transpose()
+				sparsity_cost += beta * np.sum(utils.KL_divergence(rho, rho_hat))
+
 				delta = self.layers[jj+1].weights.dot(delta) + beta * sparsity_delta
 				
 			delta *= utils.sigmoid_prime(self.layers[jj].activation.T)
@@ -521,9 +535,14 @@ class AutoEncoder():
 		bgrad = bgrad[::-1]
 		
 		# Cost function
+		# COST MISSES THE COMPLETE SPARSITY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		cost = np.sum((h - data) ** 2) / (2 * m) + (lambda_ / 2) * \
 			(sum([((self.layers[jj].weights)**2).sum() for jj in range(self.mid * 2)])) + \
-			beta * np.sum(utils.KL_divergence(rho, rho_hat))
+			sparsity_cost
 
 		# Returns the gradient as a vector.
 		grad = self._roll(wgrad, bgrad, return_info=False)
@@ -563,7 +582,7 @@ class AutoEncoder():
 		
 	def _unroll(self, theta, layer, indices, weights_shape, biases_shape):
 		w = theta[indices[layer]: indices[layer+1]].reshape(weights_shape[layer][0], weights_shape[layer][1]).transpose() 
-		b = theta[indices[layer + 1 + self.mid]: indices[layer + 2 + self.mid]].reshape(biases_shape[layer])
+		b = theta[indices[layer + 2. * self.mid]: indices[layer + 1 + 2. * self.mid]].reshape(biases_shape[layer])
 
 		return w, b
 
