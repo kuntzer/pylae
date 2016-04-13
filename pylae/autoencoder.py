@@ -7,14 +7,14 @@ import scipy.optimize
 
 class AutoEncoder(classae.GenericAutoEncoder):
 	
-	def __init__(self, name='ae', rbm_type="gd", directory='', verbose=False):
+	def __init__(self, name='ae', layer_type="gd", directory='', verbose=False):
 		self.name = name
 		self.is_pretrained = False
 		self.is_trained = False
 		self.verbose = verbose
-		self.rbm_type = rbm_type
+		self.layer_type = layer_type
 		
-		self.filepath = os.path.join(directory, name, rbm_type)
+		self.filepath = os.path.join(directory, name, layer_type)
 		if not os.path.isdir(self.filepath):
 			os.makedirs(self.filepath)
 		self.directory = directory
@@ -26,12 +26,12 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		"""
 		
 		"""
-		if self.rbm_type == "gd" :
+		if self.layer_type == "gd" :
 			import RBM_gd as RBM
 		elif self.rbm_type == "cd1" :
 			import RBM_cd1 as RBM
 		else:
-			raise RuntimeError("RBM_gd training type %s unknown." % self.rbm_type)
+			raise RuntimeError("Layer/pre-training type %s unknown." % self.rbm_type)
 		
 		
 		assert len(architecture) + 1 == len(layers_type)
@@ -44,7 +44,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 				'early_stop':early_stop}
 		self.rbms_config = rbms_config
 		
-		rbms = []
+		layers = []
 		for ii in range(len(architecture)):
 			print "Pre-training layer %d..." % (ii + 1)
 			learnr = learn_rate[layers_type[ii+1]]
@@ -57,10 +57,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					finalmomentum=finalmomentum, weightcost=regularisation)
 			data = layer.feedforward(data)
 	
-			rbms.append(layer)
+			layers.append(layer)
 		
 		self.is_pretrained = True
-		self.set_autoencoder(rbms)
+		self.set_autoencoder(layers)
 	
 	def backpropagation(self, data, iterations=500, learn_rate=0.13, momentum_rate=0.83, 
 					max_epoch_without_improvement=30, regularisation = 0.0001, early_stop=True):
@@ -394,7 +394,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		if return_info: return result
 	
 	def cost(self, theta, indices, weights_shape, biases_shape, lambda_, sparsity, beta,\
-			 data, cost_fct):
+			 data, cost_fct, log_cost=True):
 
 		if cost_fct == 'cross-entropy':
 			if beta != 0 or sparsity != 0:
@@ -418,8 +418,6 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# Sparsity
 		sparsity_cost = 0
 		
-		# Back-propagation
-		delta = -(data - h)
 		wgrad = []
 		bgrad = []
 		
@@ -427,6 +425,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# Cost function
 
 		if cost_fct == 'L2':
+			
+			# Back-propagation
+			delta = -(data - h)
+		
 			# Compute the gradient:
 			for jj in range(self.mid * 2 - 1, -1, -1):
 
@@ -469,6 +471,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			# Compute the gradients:
 			# http://neuralnetworksanddeeplearning.com/chap3.html for details
 			dEda = None
+			
 			for jj in range(self.mid * 2 - 1, -1, -1):
 				#print jj, '-------' * 6
 				# The output of the layer right before is
@@ -500,6 +503,9 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			# Computes the cross-entropy
 			cost = - np.sum(data * np.log(h) + (1. - data) * np.log(1. - h), axis=0) 
 			cost = np.mean(cost)
+		
+			if log_cost:
+				self.train_history.append(cost)
 		
 		#exit()
 		# Returns the gradient as a vector.

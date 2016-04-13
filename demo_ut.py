@@ -11,7 +11,7 @@ images = images.T
 patches = images[0:5000]#[0:50000]
 test = images[50000:]
 
-gd = pylae.autoencoder.AutoEncoder(network_name, rbm_type="gd")
+gd = pylae.autoencoder.AutoEncoder(network_name, layer_type="gd")
 architecture = [1024, 512, 16]
 n_pca=16
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]#, "SIGMOID"]#, "SIGMOID"]
@@ -20,8 +20,8 @@ layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]#, "SIGMOID"]#, "SIGMO
 architecture = [50, 16]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID"]
 
-pre_train = True
-train = True
+pre_train = False
+train = False
 cost_fct = 'cross-entropy'
 if pre_train:
 	gd.pre_train(patches, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':0.05/10.}, 
@@ -33,14 +33,16 @@ else:
 	gd.is_pretrained = True
 
 if train:
-	gd.fine_tune(patches, iterations=10, regularisation=0.000, sparsity=0.0, beta=0., cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
+	gd.fine_tune(patches, iterations=1000, regularisation=0.000, sparsity=0.0, beta=0., cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
 
 	gd.save()
 else:
 	gd = utils.readpickle("%s/gd/ae.pkl" % network_name)
 	print 'AE loaded!'
 	
-
+gd.train_history = []
+gd.fine_tune(patches, iterations=3000, regularisation=0.000, sparsity=0.0, beta=0., cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
+gd.save()
 enc = gd.encode(test)
 
 """
@@ -112,7 +114,7 @@ recont_pca += 1e-10
 
 print 'AE cost: ', utils.cross_entropy(test, reconstruc)
 print 'PCA cost: ', utils.cross_entropy(test, recont_pca)
-exit()
+
 
 varrent = 0
 varrentpca = 0

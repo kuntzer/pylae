@@ -16,6 +16,7 @@ class GenericAutoEncoder():
 		if not os.path.isdir(self.filepath):
 			os.makedirs(self.filepath)
 		self.directory = directory
+		self.train_history = []
 		
 	def set_autoencoder(self, encoder):
 		"""
@@ -49,6 +50,19 @@ class GenericAutoEncoder():
 		for layer in self.layers :
 			#print layer.hidden_nodes, '-'*30
 			data = layer.feedforward_memory(data)
+
+		return data
+	
+	def feedforward_to_layer(self, data, j):
+		"""
+		Encodes and decodes the data using the full autoencoder
+		:param data: The data in the same format than the training data
+		:param j: the layer to stop at 
+		
+		:returns: the fed-forward data
+		"""
+		for layer in self.layers[:j+1] : # TODO: +1, really?
+			data = layer.feedforward(data)
 
 		return data
 	
@@ -289,3 +303,15 @@ class GenericAutoEncoder():
 	
 		#plt.show()
 	
+	def display_train_history(self):
+		import pylab as plt
+		
+		plt.figure()
+		
+		for jj in range(self.mid):
+			plt.plot(self.layers[jj].train_history, label="Layer %d" % jj, lw=2)
+		
+		plt.plot(self.train_history, lw=2, label="Fine-tune")
+		plt.legend(loc='best')
+		
+		plt.show()
