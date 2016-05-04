@@ -13,7 +13,7 @@ import os
 
 network_name = 'output/dA/test25'
 path_in_dataset = 'output/psf_nonoise/moffat.pkl'
-scale = 0.0001
+scale = 0.0012
 
 ids_train = range(5000)
 ids_validation = range(5000, 7000)
@@ -26,10 +26,13 @@ print 'Datasets...',
 noisy = u.readpickle(path_in_dataset)
 print np.amin(noisy), np.amax(noisy), '<<<'
 
-noisy, noisy_mean, noisy_std = u.standardize(noisy)
+
 nonoise = copy.copy(noisy)
 print np.amin(noisy), np.amax(noisy), '<<<'
 noisy += np.random.normal(scale=scale, size=noisy.shape)
+
+noisy, noisy_mean, noisy_std = u.standardize(noisy)
+nonoise, _, _ = u.standardize(nonoise, noisy_mean, noisy_std)
 noisy, noisy_low, noisy_high = u.normalise(noisy)
 nonoise, nonoise_low, nonoise_high = u.normalise(nonoise, noisy_low, noisy_high)
 '''
@@ -40,7 +43,6 @@ nonoise_high = 1.
 '''
 train_noisy = noisy[ids_train]
 train_nonoise = nonoise[ids_train]
-train_nonoise = train_noisy
 
 test_noisy = noisy[ids_test]
 test_nonoise = nonoise[ids_test]
@@ -61,7 +63,7 @@ plt.show()
 exit()
 """
 #=================================================================================================#
-layer_type='rmse'
+layer_type='dA'
 dA = pylae.dA.AutoEncoder(network_name, layer_type=layer_type)
 
 n_pca=25
@@ -72,7 +74,7 @@ layers_type = ["SIGMOID"] * (len(architecture) + 1)
 #architecture = [n_pca]
 #layers_type = ["SIGMOID", "SIGMOID"]
 
-redo = False
+redo = True
 if redo :
 	pre_train = True
 	train = True
@@ -83,10 +85,11 @@ else:
 	train = False
 	pca_train = False
 	do_meas_params = False
+pca_train = True
 do_meas_params = True
 
 cost_fct = 'cross-entropy'
-cost_fct = 'L2'
+#cost_fct = 'L2'
 corruption = None# train_noisy#[0.000, 0.0012]#[0., 0.001]#[0.0, 0.001]#0.2# 0.0#[0., 0.3]
 
 if pre_train:
@@ -99,7 +102,7 @@ else:
 
 if train:
 	#dA = u.readpickle("%s/dA/ae.pkl" % network_name)
-	dA.fine_tune(train_nonoise, iterations=5000, regularisation=0.0, sparsity=0.0, beta=0., corruption=corruption, cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
+	dA.fine_tune(train_nonoise, iterations=500, regularisation=0.0, sparsity=0.0, beta=0., corruption=corruption, cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
 
 	dA.save()
 	dA.display_train_history()
@@ -134,7 +137,7 @@ print np.amin(test_tilde), np.amax(test_tilde)
 datasets = [test_nonoise, test_noisy, test_tilde, test_pca_tilde]
 for ds in datasets:
 	ds = u.unnormalise(test_pca_tilde, noisy_low, noisy_high)
-	ds = u.unstandardize(ds, noisy_mean, noisy_std)
+	#ds = u.unstandardize(ds, noisy_mean, noisy_std)
 print '------------------'
 print np.amin(test_nonoise), np.amax(test_nonoise)
 print np.amin(test_noisy), np.amax(test_noisy)
