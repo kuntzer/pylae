@@ -24,17 +24,21 @@ class AE_layer():
 	def compute_visible(self, m_input):
 		return np.dot(m_input, self.weights.T) + self.visible_biases
 	
-	def full_feedforward(self, data):
+	def full_feedforward(self, data, return_activation=False):
 		hidden_data = self.feedforward_memory(data)
-		m_output = self.compute_visible(hidden_data)
+		activation = self.compute_visible(hidden_data)
 		
 		if(self.visible_type == "SIGMOID"):
-			m_output = utils.sigmoid(m_output)
+			
+			m_output = utils.sigmoid(activation)
 		elif(self.visible_type == "LINEAR"):
 			pass # Nothing to do here
 		else:
 			raise NotImplemented("Unrecogonised hidden type")
 			
+		if return_activation:
+			return m_output, activation
+		
 		return m_output
 		
 	def feedforward(self, data, mem=False, debug=False):	

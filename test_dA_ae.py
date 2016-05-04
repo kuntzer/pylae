@@ -4,52 +4,48 @@ import pylae
 import pylae.utils as utils
 from pylae.utils_mnist import load_MNIST_images
 
-network_name = 'wip/sgd-test'
+network_name = 'wip/dA-test-corr'
 
 images = load_MNIST_images('data/mnist/train-images.idx3-ubyte')
 images = images.T
 patches = images[0:5000]#[0:50000]
 test = images[50000:]
 
-gd = pylae.autoencoder.AutoEncoder(network_name, layer_type="gd")
-architecture = [1024, 512, 16]
+dA = pylae.dA.AutoEncoder(network_name)
+
 n_pca=16
-layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]#, "SIGMOID"]#, "SIGMOID"]
 
+architecture = [500, 200, 80, n_pca]
+layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 
-architecture = [50, 16]
+architecture = [100, n_pca]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID"]
-
-#architecture = [2000, 2000, 2000, n_pca]
-#layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 
 pre_train = False
 train = True
 cost_fct = 'cross-entropy'
+corruption = patches#[0., 0.3]
+
 if pre_train:
-	gd.pre_train(patches, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':0.05/10.}, 
-				initialmomentum=0.5,finalmomentum=0.9, iterations=1000, mini_batch=100, regularisation=0.0087)
-	utils.writepickle(gd.rbms, "%s/gd/rbms.pkl" % network_name)
+	dA.pre_train(patches, architecture, layers_type, iterations=1000, mini_batch=0, corruption=corruption)
+	utils.writepickle(dA.rbms, "%s/dA/layers.pkl" % network_name)
 else:
-	rbms = utils.readpickle("%s/gd/rbms.pkl" % network_name)
-	gd.set_autoencoder(rbms)
-	gd.is_pretrained = True
+	rbms = utils.readpickle("%s/dA/layers.pkl" % network_name)
+	dA.set_autoencoder(rbms)
+	dA.is_pretrained = True
 
 if train:
-	
-	gd.fine_tune(patches, iterations=1000, regularisation=0.000, sparsity=0.0, beta=0., cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
-	#gd.asgd(patches, iterations=5000,minibatch=5000)
-	#gd.sgd(patches, iterations=1000, learning_rate=0.02, initial_momentum=0.5, final_momentum=0.9, annealing=2000)
-	gd.save()
+	#dA.sgd(patches, iterations=1000, learning_rate=0.02, initial_momentum=0.5, final_momentum=0.9, annealing=2000,  corruption=corruption)
+	dA.fine_tune(patches, iterations=1000, regularisation=0.000, sparsity=0.0, beta=0., corruption=corruption, cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
+
+	dA.save()
 else:
-	gd = utils.readpickle("%s/gd/ae.pkl" % network_name)
+	dA = utils.readpickle("%s/dA/ae.pkl" % network_name)
 	print 'AE loaded!'
 	
-#gd.fine_tune(patches, iterations=3000, regularisation=0.000, sparsity=0.0, beta=0., cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
-#gd.save()
-gd.display_train_history()
-
-enc = gd.encode(test)
+	
+dA.display_train_history()
+enc = dA.encode(test)
 
 """
 print np.amin(enc[0]), np.amax(enc[0])
@@ -107,7 +103,7 @@ plt.gca().set_xscale("log")
 plt.show()
 """
 
-reconstruc = gd.decode(enc)
+reconstruc = dA.decode(enc)
 
 pca = utils.compute_pca(patches, n_components=n_pca)
 recont_pca = pca.transform(test)
@@ -120,7 +116,6 @@ recont_pca += 1e-10
 
 print 'AE cost: ', utils.cross_entropy(test, reconstruc)
 print 'PCA cost: ', utils.cross_entropy(test, recont_pca)
-
 
 varrent = 0
 varrentpca = 0

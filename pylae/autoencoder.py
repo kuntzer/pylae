@@ -18,6 +18,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		if not os.path.isdir(self.filepath):
 			os.makedirs(self.filepath)
 		self.directory = directory
+		self.train_history = []
 	
 	def pre_train(self, data, architecture, layers_type, learn_rate={'SIGMOID':3.4e-3, 'LINEAR':3.4e-4},
 			initialmomentum=0.53, finalmomentum=0.93, iterations=2000, mini_batch=100,
@@ -28,10 +29,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		"""
 		if self.layer_type == "gd" :
 			import RBM_gd as RBM
-		elif self.rbm_type == "cd1" :
+		elif self.layer_type == "cd1" :
 			import RBM_cd1 as RBM
 		else:
-			raise RuntimeError("Layer/pre-training type %s unknown." % self.rbm_type)
+			raise RuntimeError("Layer/pre-training type %s unknown." % self.layer_type)
 		
 		
 		assert len(architecture) + 1 == len(layers_type)
@@ -361,7 +362,6 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
-		
 
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
@@ -423,7 +423,6 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		############################################################################################
 		# Cost function
-
 		if cost_fct == 'L2':
 			
 			# Back-propagation
@@ -446,14 +445,23 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					rho_hat = np.mean(self.layers[jj].output.T, axis=1)
 					rho = np.tile(sparsity, hn)
 					#print np.shape(rho_hat), rho.shape
-					sparsity_delta = np.tile(- rho / rho_hat + (1 - rho) / (1 - rho_hat), (m, 1)).transpose()
-					sparsity_cost += beta * np.sum(utils.KL_divergence(rho, rho_hat))
+					if beta == 0:
+						sparsity_delta = 0
+						sparsity_cost = 0
+					else:
+						sparsity_delta = np.tile(- rho / rho_hat + (1 - rho) / (1 - rho_hat), (m, 1)).transpose()
+						sparsity_cost += beta * np.sum(utils.KL_divergence(rho, rho_hat))
 	
 					delta = self.layers[jj+1].weights.dot(delta) + beta * sparsity_delta
 					
-				delta *= utils.sigmoid_prime(self.layers[jj].activation.T)
+				if self.layers[jj].hidden_type == 'SIGMOID':
+					delta *= utils.sigmoid_prime(self.layers[jj].activation.T)
+				elif self.layers[jj].hidden_type == 'LINEAR':
+					pass # Nothing more to do
+				else:
+					raise NotImplemented("Hidden type %s not implemented" % self.layers[jj].hidden_type)
 				
-				grad_w = delta.dot(self.layers[jj].input) / m + lambda_ * self.layers[jj].weights.T
+				grad_w = delta.dot(self.layers[jj].input) / m + lambda_ * self.layers[jj].weights.T / m
 				grad_b = np.mean(delta, axis=1)
 				wgrad.append(grad_w.T)
 				bgrad.append(grad_b)
@@ -503,9 +511,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			# Computes the cross-entropy
 			cost = - np.sum(data * np.log(h) + (1. - data) * np.log(1. - h), axis=0) 
 			cost = np.mean(cost)
-		
-			if log_cost:
-				self.train_history.append(cost)
+		elif cost_fct == 'X_rmse_params': 
+			raise NotImplemented()
+		if log_cost:
+			self.train_history.append(cost)
 		
 		#exit()
 		# Returns the gradient as a vector.
@@ -520,3 +529,143 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		iterations = -1
 		return self.fine_tune(data, iterations, regularisation, sparsity, beta,	method, verbose, return_info, cost_fct)
+	
+	def sgd(self, data, iterations, learning_rate, initial_momentum, final_momentum, minibatch=10, annealing=None, max_epoch_without_improvement=30, early_stop=True):
+		"""
+		Performes an Stochastic gradient descent (SGD) optimisation of the network.
+		"""
+		
+		m = data.shape[1]
+		data = data.T
+		
+		###########################################################################################
+		# Initialisation of the weights and bias
+		
+		# Copy the weights and biases into a state vector theta
+		weights = []
+		biases = []
+		for jj in range(self.mid * 2):
+			weights.append(copy.copy(self.layers[jj].weights))
+			biases.append(self.layers[jj].hidden_biases) 
+			
+		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
+		del weights, biases
+		
+		###########################################################################################
+		v_mom = 0
+		best_cost = 1e8
+		
+		batch_indices = np.arange(m)
+		n_minibatches = np.int(np.ceil(m/minibatch))
+		
+		gamma = initial_momentum
+		
+		for epoch in range(iterations):
+			np.random.shuffle(batch_indices)			
+			for ibatch in range(n_minibatches+1):
+				ids = batch_indices[ibatch*minibatch:(ibatch+1)*minibatch]
+				batch = data[:,ids]
+				
+				_, thetan = self.cost(theta, indices, weights_shape, biases_shape,
+				0, 0, 0, batch, cost_fct='cross-entropy', log_cost=False)
+				v_mom = gamma * v_mom + learning_rate * thetan
+				theta -= v_mom
+			
+			actual = self.feedforward(data.T)
+			cost = utils.cross_entropy(data.T, actual)
+			print 'Epoch %4d/%4d:\t%e' % (epoch+1, iterations, cost)
+
+			self.train_history.append(cost)
+			
+			if cost <= best_cost :
+				best_cost = cost
+				iter_best = epoch
+				
+			if epoch - iter_best > max_epoch_without_improvement :
+				print 'STOP: %d epoches without improvment' % max_epoch_without_improvement
+				break
+			
+			
+			if annealing is not None:
+				learning_rate /= (1. + float(epoch) / annealing)
+				
+			if epoch > 100:
+				gamma = final_momentum
+			else:
+				gamma = initial_momentum + (final_momentum - initial_momentum) * utils.sigmoid(epoch - 50)
+			print learning_rate, gamma
+			
+		###########################################################################################
+		# Unroll the state vector and saves it to self.	
+		for jj in range(self.mid * 2):
+			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
+			
+			self.layers[jj].weights = w
+			self.layers[jj].hidden_biases = b
+			
+		# We're done !
+		self.is_trained = True
+
+	def asgd(self, data, iterations, learning_rate=0.001, minibatch=10, decay_rate=0.9, max_epoch_without_improvement=30, early_stop=True):
+		"""
+		http://sebastianruder.com/optimizing-gradient-descent/index.html#adadelta
+		"""
+		
+		m = data.shape[1]
+		data = data.T
+		
+		###########################################################################################
+		# Initialisation of the weights and bias
+		
+		# Copy the weights and biases into a state vector theta
+		weights = []
+		biases = []
+		for jj in range(self.mid * 2):
+			weights.append(copy.copy(self.layers[jj].weights))
+			biases.append(self.layers[jj].hidden_biases) 
+			
+		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
+		del weights, biases
+		
+		###########################################################################################
+		best_cost = 1e8
+		iter_best = 0
+		
+		eps = 1e-12 
+		Dt2 = np.zeros_like(theta)
+		Eg2 = np.zeros_like(theta)
+		
+		
+		for epoch in range(iterations):
+			cost, thetan = self.cost(theta, indices, weights_shape, biases_shape,
+				0, 0, 0, data, cost_fct='cross-entropy', log_cost=False)
+			
+			Eg2 = decay_rate * Eg2 + (1. - decay_rate) * thetan * thetan
+			
+			delta_theta = - learning_rate / np.sqrt(Eg2 + eps) * thetan
+			
+			theta = theta + delta_theta#- np.sqrt(Dt2 + eps) / np.sqrt(Eg2 + eps) * thetan
+			
+			print 'Epoch %4d/%4d:\t%e' % (epoch+1, iterations, cost)
+
+			self.train_history.append(cost)
+			
+			if cost <= best_cost :
+				best_cost = cost
+				iter_best = epoch
+				
+			if epoch - iter_best > max_epoch_without_improvement :
+				print 'STOP: %d epoches without improvment' % max_epoch_without_improvement
+				break
+						
+		###########################################################################################
+		# Unroll the state vector and saves it to self.	
+		for jj in range(self.mid * 2):
+			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
+			
+			self.layers[jj].weights = w
+			self.layers[jj].hidden_biases = b
+			
+		# We're done !
+		self.is_trained = True
+

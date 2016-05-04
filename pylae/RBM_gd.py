@@ -30,7 +30,7 @@ class RBM(layer.AE_layer):
 		N = self.mini_batch
 		n_tot_batches = np.int(np.ceil(Nd/self.mini_batch))
 		
-		vishid = 0.1 * np.random.randn(numdims, self.hidden_nodes)
+		vishid = 0.01 * np.random.randn(numdims, self.hidden_nodes)
 		
 		hidbiases = np.zeros(self.hidden_nodes)
 		visbiases = np.zeros(numdims)

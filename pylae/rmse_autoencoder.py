@@ -20,12 +20,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		self.directory = directory
 		self.train_history = []
 	
-	def pre_train(self, data, architecture, layers_type, mini_batch, iterations, corruption=None, **kwargs):
+	def pre_train(self, data, architecture, layers_type, mini_batch, iterations, corruption=None):
 
 		if self.layer_type == "dA" :
 			import dA_layer as network
-		elif self.layer_type == "rmse" :
-			import rmse_layer as network
 		else:
 			raise RuntimeError("Layer/pre-training type %s unknown." % self.rbm_type)
 		
@@ -33,20 +31,12 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		assert len(architecture) + 1 == len(layers_type)
 		
 		layers = []
-		shape_previous_layer = np.shape(data)
 		for ii in range(len(architecture)):
 			print "Pre-training layer %d..." % (ii + 1)
-			if np.shape(corruption) == shape_previous_layer and ii > 0:
-				print 'here, coucou'
-				corruption_lvl = layers[ii-1].feedforward(corruption)
-			else:
-				corruption_lvl = corruption
-				
 			layer = network.Layer(architecture[ii], layers_type[ii], layers_type[ii+1], mini_batch, 
-						iterations, corruption_lvl)
-			layer.train(data, **kwargs)
+						iterations, corruption)
+			layer.train(data)
 			print 'continue with next level'
-			shape_previous_layer = np.shape(data)
 			data = layer.feedforward(data)
 	
 			layers.append(layer)
@@ -83,7 +73,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			regularisation, sparsity, beta, data, corruption, cost_fct=cost_fct)
 		
 		if iterations >= 0:
-			options_ = {'maxiter': iterations, 'disp': verbose, 'ftol' : 10. * np.finfo(float).eps, 'gtol': 1e-9}
+			options_ = {'maxiter': iterations, 'disp': verbose}
 			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
 			opt_theta = result.x
 		else:
@@ -111,8 +101,6 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		if type(corruption) == float:
 			cdata = np.random.binomial(size=data.shape, n=1, p=1.-corruption) * data
-		elif np.shape(corruption.T) == np.shape(data):
-			cdata = corruption.T
 		else:
 			scales = np.random.uniform(low=corruption[0], high=corruption[1], size=data.shape[1])
 			# TODO: NORMALISE THIS !!!!!
@@ -166,10 +154,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		if cost_fct == 'L2':
 			
 			if corruption is not None:
-				print 'WARNING: EXPERIMENTAL'#raise NotImplemented('corruption not covered in L2')
+				raise NotImplemented('corruption not covered in L2')
 			
 			# Back-propagation
-			delta = -(data - ch)
+			delta = -(data - h)
 		
 			# Compute the gradient:
 			for jj in range(self.mid * 2 - 1, -1, -1):
