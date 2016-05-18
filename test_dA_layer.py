@@ -8,10 +8,10 @@ from pylae.utils_mnist import load_MNIST_images
 images = load_MNIST_images('data/mnist/train-images.idx3-ubyte')
 images = images.T
 
-patches = images[0:5000]#[0:50000]
+patches = images[0:25000]#[0:50000]
 test = images[45000:50000]
 
-corruption = patches
+corruption = 0.051
 
 n_comp = 100
 dA = pylae.dA_layer.Layer(n_comp, 'SIGMOID', 'SIGMOID', 0, 200, corruption=corruption)#[0.0,0.3])

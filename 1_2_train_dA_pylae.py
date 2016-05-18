@@ -13,7 +13,8 @@ import os
 
 network_name = 'output/dA/test25'
 path_in_dataset = 'output/psf_nonoise/moffat.pkl'
-scale = 0.0012
+min_scale = 0.0005
+max_scale = 0.0012
 
 ids_train = range(5000)
 ids_validation = range(5000, 7000)
@@ -29,12 +30,25 @@ print np.amin(noisy), np.amax(noisy), '<<<'
 
 nonoise = copy.copy(noisy)
 print np.amin(noisy), np.amax(noisy), '<<<'
-noisy += np.random.normal(scale=scale, size=noisy.shape)
+little_noisy = copy.copy(noisy)
+very_noisy = copy.copy(noisy)
 
-noisy, noisy_mean, noisy_std = u.standardize(noisy)
-nonoise, _, _ = u.standardize(nonoise, noisy_mean, noisy_std)
-noisy, noisy_low, noisy_high = u.normalise(noisy)
+noisy = [n + np.random.normal(scale=np.random.uniform(min_scale, max_scale), size=n.shape) for n in noisy]
+little_noisy = [n + np.random.normal(scale=np.random.uniform(min_scale/2., max_scale/2.), size=n.shape) for n in little_noisy]
+very_noisy = [n + np.random.normal(scale=np.random.uniform(max_scale*1.0, max_scale*1.100), size=n.shape) for n in very_noisy]
+
+#very_noisy, noisy_mean, noisy_std = u.standardize(very_noisy)
+#noisy, _, _ = u.standardize(noisy, noisy_mean, noisy_std)
+#nonoise, _, _ = u.standardize(nonoise, noisy_mean, noisy_std)
+#little_noisy, _, _ = u.standardize(little_noisy, noisy_mean, noisy_std)
+
+very_noisy, noisy_low, noisy_high = u.normalise(very_noisy)
+noisy, noisy_low, noisy_high = u.normalise(noisy, noisy_low, noisy_high)
 nonoise, nonoise_low, nonoise_high = u.normalise(nonoise, noisy_low, noisy_high)
+little_noisy, _, _ = u.normalise(little_noisy, noisy_low, noisy_high)
+
+data_std = [0.,1.]#[noisy_mean, noisy_std]
+data_norm = [noisy_low, noisy_high]
 '''
 noisy_low = 0. 
 noisy_high = 1.
@@ -43,6 +57,7 @@ nonoise_high = 1.
 '''
 train_noisy = noisy[ids_train]
 train_nonoise = nonoise[ids_train]
+train_lnoise = little_noisy[ids_train]
 
 test_noisy = noisy[ids_test]
 test_nonoise = nonoise[ids_test]
@@ -51,9 +66,10 @@ print 'loaded.'
 
 print '------------------'
 print np.amin(test_nonoise), np.amax(test_nonoise)
-print np.amin(test_noisy), np.amax(test_noisy)
+print np.amin(test_noisy), np.amax(test_noisy), '<<<'
 print np.amin(train_nonoise), np.amax(train_nonoise)
-print np.amin(train_noisy), np.amax(train_noisy)
+print np.amin(train_noisy), np.amax(train_noisy), '<<<'
+print np.amin(very_noisy), np.amax(very_noisy)
 
 """
 plt.figure()
@@ -63,7 +79,7 @@ plt.show()
 exit()
 """
 #=================================================================================================#
-layer_type='dA'
+layer_type='rmse'
 dA = pylae.dA.AutoEncoder(network_name, layer_type=layer_type)
 
 n_pca=25
@@ -85,15 +101,15 @@ else:
 	train = False
 	pca_train = False
 	do_meas_params = False
-pca_train = True
 do_meas_params = True
 
-cost_fct = 'cross-entropy'
-#cost_fct = 'L2'
-corruption = None# train_noisy#[0.000, 0.0012]#[0., 0.001]#[0.0, 0.001]#0.2# 0.0#[0., 0.3]
+#cost_fct = 'cross-entropy'
+cost_fct = 'L2'
+corruption = [0,max_scale * 1.08]# train_noisy#[0.000, 0.0012]#[0., 0.001]#[0.0, 0.001]#0.2# 0.0#[0., 0.3]
 
 if pre_train:
-	dA.pre_train(train_nonoise, architecture, layers_type, iterations=2000, mini_batch=0, corruption=corruption)
+	dA.pre_train(train_nonoise, architecture, layers_type, iterations=2000, mini_batch=0,\
+				 corruption=corruption, data_std=data_std, data_norm=data_norm, regularisation=0.00003)
 	u.writepickle(dA.rbms, "%s/%s/layers.pkl" % (network_name, layer_type))
 else:
 	rbms = u.readpickle("%s/%s/layers.pkl" % (network_name, layer_type))
@@ -102,7 +118,7 @@ else:
 
 if train:
 	#dA = u.readpickle("%s/dA/ae.pkl" % network_name)
-	dA.fine_tune(train_nonoise, iterations=500, regularisation=0.0, sparsity=0.0, beta=0., corruption=corruption, cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
+	dA.fine_tune(train_nonoise, iterations=4000, regularisation=0.00003, sparsity=0.0, beta=0., corruption=corruption, cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
 
 	dA.save()
 	dA.display_train_history()

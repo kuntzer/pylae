@@ -22,7 +22,7 @@ architecture = [100, n_pca]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID"]
 
 pre_train = False
-train = True
+train = False
 cost_fct = 'cross-entropy'
 corruption = patches#[0., 0.3]
 

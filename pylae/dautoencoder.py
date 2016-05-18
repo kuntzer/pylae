@@ -1,5 +1,5 @@
 import numpy as np
-import utils
+import utils as u
 import copy
 import os
 import classae
@@ -111,16 +111,32 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		if type(corruption) == float:
 			cdata = np.random.binomial(size=data.shape, n=1, p=1.-corruption) * data
-		elif np.shape(corruption.T) == np.shape(data):
+		elif np.shape(np.asarray(corruption).T) == np.shape(data):
 			cdata = corruption.T
 		else:
-			scales = np.random.uniform(low=corruption[0], high=corruption[1], size=data.shape[1])
-			# TODO: NORMALISE THIS !!!!!
-			print 'WARNING: NOISE MAPS ARE NOT NORMALISED; THIS IS BS'
-			noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales]
-			noise_maps = np.asarray(noise_maps)
+			print np.amin(data), np.amax(data), np.mean(data), np.std(data)
+			if self.layers[0].data_std is not None and self.layers[0].data_norm is not None:
+				scales = np.random.uniform(low=corruption[0], high=corruption[1], size=data.shape[1])
 				
-			cdata = data + noise_maps.T
+				data = u.unnormalise(data, self.layers[0].data_norm[0], self.layers[0].data_norm[1])
+				data = u.unstandardize(data, self.layers[0].data_std[0], self.layers[0].data_std[1])
+				
+				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales]
+				noise_maps = np.asarray(noise_maps)
+				
+				cdata = data + noise_maps.T
+				
+				cdata, _, _ = u.standardize(cdata, self.layers[0].data_std[0], self.layers[0].data_std[1])
+				cdata, _, _ = u.normalise(cdata, self.layers[0].data_norm[0], self.layers[0].data_norm[1])
+				
+				# Just making sure we're not out of bounds:
+				min_thr = 1e-6
+				max_thr = 0.99999
+				print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
+				cdata[cdata < min_thr] = min_thr
+				cdata[cdata > max_thr] = max_thr
+				
+				print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
 		
 		#print np.amin(data), np.amax(data)
 		#print np.amin(cdata), np.amax(cdata)
@@ -193,11 +209,11 @@ class AutoEncoder(classae.GenericAutoEncoder):
 						sparsity_cost = 0
 					else:
 						sparsity_delta = np.tile(- rho / rho_hat + (1 - rho) / (1 - rho_hat), (m, 1)).transpose()
-						sparsity_cost += beta * np.sum(utils.KL_divergence(rho, rho_hat))
+						sparsity_cost += beta * np.sum(u.KL_divergence(rho, rho_hat))
 	
 					delta = self.layers[jj+1].weights.dot(delta) + beta * sparsity_delta
 					
-				delta *= utils.sigmoid_prime(self.layers[jj].activation.T)
+				delta *= u.sigmoid_prime(self.layers[jj].activation.T)
 				
 				grad_w = delta.dot(self.layers[jj].input) / m + lambda_ * self.layers[jj].weights.T
 				grad_b = np.mean(delta, axis=1)
@@ -239,7 +255,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					
 				dEdb = np.mean(dEda, axis=1)
 
-				dEdw = dEda.dot(hn) / m
+				dEdw = dEda.dot(hn) / m + lambda_ * self.layers[jj].weights.T
 				dEdw = dEdw.T
 				
 				wgrad.append(dEdw)
@@ -313,7 +329,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 				theta -= v_mom
 			
 			actual = self.feedforward(data.T)
-			cost = utils.cross_entropy(data.T, actual)
+			cost = u.cross_entropy(data.T, actual)
 			print 'Epoch %4d/%4d:\t%e' % (epoch+1, iterations, cost)
 
 			self.train_history.append(cost)
@@ -333,7 +349,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			if epoch > 100:
 				gamma = final_momentum
 			else:
-				gamma = initial_momentum + (final_momentum - initial_momentum) * utils.sigmoid(epoch - 50)
+				gamma = initial_momentum + (final_momentum - initial_momentum) * u.sigmoid(epoch - 50)
 			print learning_rate, gamma
 			
 		###########################################################################################

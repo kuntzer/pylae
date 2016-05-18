@@ -2,6 +2,7 @@ import numpy as np
 import layer
 import scipy.optimize
 import copy
+import utils as u
 
 class Layer(layer.AE_layer):
 	def __init__(self, hidden_nodes, visible_type, hidden_type, mini_batch, iterations, 
@@ -27,7 +28,12 @@ class Layer(layer.AE_layer):
 		self.corruption = corruption
 		
 	
-	def cost(self, theta, data, log_cost=False):
+	def cost(self, theta, data, log_cost=False, **params):
+
+		if not 'regularisation' in params:
+			lambda_ = 0.
+		else:
+			lambda_ = params['regularisation']
 
 		m = data.shape[1]
 		
@@ -45,6 +51,7 @@ class Layer(layer.AE_layer):
 		#	hn = self#self.feedforward(data.T)
 		#else:
 		#	pass
+		hd = self.feedforward(data.T)
 		hn = self.output
 			
 		# Compute the gradients:
@@ -53,14 +60,13 @@ class Layer(layer.AE_layer):
 		# First: bottom to top
 		dEda = h - data
 		dEdvb = np.mean(dEda, axis=1)
-		
 		#Second: top to bottom
 		
 		
 		dEda = (self.weights.T).dot(dEda) * (hn * (1. - hn)).T
 		dEdhb = np.mean(dEda, axis=1)
 		
-		dEdw = dEda.dot(data.T) / m
+		dEdw = dEda.dot(data.T) / m + lambda_ * self.weights.T / m
 		dEdw = dEdw.T
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 
@@ -78,16 +84,35 @@ class Layer(layer.AE_layer):
 		
 		if type(self.corruption) == float:
 			cdata = np.random.binomial(size=data.shape, n=1, p=1.-self.corruption) * data
-		elif np.shape(self.corruption.T) == np.shape(data):
+		elif np.shape(np.asarray(self.corruption).T) == np.shape(data):
 			cdata = self.corruption.T
 		else:
-			scales = np.random.uniform(low=self.corruption[0], high=self.corruption[1], size=data.shape[1])
-			# TODO: NORMALISE THIS !!!!!
-			print 'WARNING: NOISE MAPS ARE NOT NORMALISED; THIS IS BS'
-			noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales]
-			noise_maps = np.asarray(noise_maps)
+			print np.amin(data), np.amax(data), np.mean(data), np.std(data)
+			if self.data_std is not None and self.data_norm is not None:
+				scales = np.random.uniform(low=self.corruption[0], high=self.corruption[1], size=data.shape[1])
 				
-			cdata = data + noise_maps.T
+				data = u.unnormalise(data, self.data_norm[0], self.data_norm[1])
+				data = u.unstandardize(data, self.data_std[0], self.data_std[1])
+				
+				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales]
+				noise_maps = np.asarray(noise_maps)
+				
+				cdata = data + noise_maps.T
+				
+				cdata, _, _ = u.standardize(cdata, self.data_std[0], self.data_std[1])
+				cdata, _, _ = u.normalise(cdata, self.data_norm[0], self.data_norm[1])
+				
+				# Just making sure we're not out of bounds:
+				min_thr = 1e-6
+				max_thr = 0.99999
+				
+				print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
+				cdata[cdata < min_thr] = min_thr
+				cdata[cdata > max_thr] = max_thr
+				
+				print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
+			else:
+				raise RuntimeError("Can't normalise the data. You must provide the normalisation and standardisation values. Giving up.")
 		#print np.amin(data), np.amax(data)
 		#print np.amin(cdata), np.amax(cdata)
 		return cdata
@@ -109,19 +134,29 @@ class Layer(layer.AE_layer):
 		
 		return weights, visible_biases, hidden_biases
 	
-	def train(self, data, method='L-BFGS-B', verbose=True, return_info=False):
+	def train(self, data, data_std=None, data_norm=None, method='L-BFGS-B', verbose=True, return_info=False, **kwargs):
 		# TODO: deal with minibatches!
+		
 		_, numdims = np.shape(data)
+		self.data_std = data_std
+		self.data_norm = data_norm
 		#N = self.mini_batch
 		self.visible_dims = numdims
 		
-		self.weights = 0.05 * np.random.randn(numdims, self.hidden_nodes)
+		self.weights = 0.1 * np.random.randn(numdims, self.hidden_nodes)
 		
 		# This apparently is better, but definitely noisier (or plain worse)!
 		self.weights2 = 4 * np.random.uniform(
 					low=-np.sqrt(6. / (numdims + self.hidden_nodes)),
 					high=np.sqrt(6. / (numdims + self.hidden_nodes)),
 					size=(numdims, self.hidden_nodes))
+	
+		self.weights3 = 2. * np.random.uniform(
+					low=-np.sqrt(1. / (numdims)),
+					high=np.sqrt(1. / (numdims)),
+					size=(numdims, self.hidden_nodes))
+		
+		print 'WEIGHTS:', np.amin(self.weights), np.amax(self.weights), np.mean(self.weights), np.std(self.weights)
 		
 		self.visible_biases = np.zeros(numdims)
 		self.hidden_biases = np.zeros(self.hidden_nodes)
@@ -132,7 +167,7 @@ class Layer(layer.AE_layer):
 		
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
-		J = lambda x: self.cost(x, data, log_cost=True)
+		J = lambda x: self.cost(x, data, log_cost=True, **kwargs)
 		
 		options_ = {'maxiter': self.iterations, 'disp': verbose, 'ftol' : 10. * np.finfo(float).eps}
 		result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
