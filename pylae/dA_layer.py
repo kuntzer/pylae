@@ -168,7 +168,7 @@ class Layer(layer.AE_layer):
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
 		J = lambda x: self.cost(x, data, log_cost=True, **kwargs)
-		
+
 		options_ = {'maxiter': self.iterations, 'disp': verbose, 'ftol' : 10. * np.finfo(float).eps}
 		result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
 		opt_theta = result.x

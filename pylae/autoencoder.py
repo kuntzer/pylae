@@ -105,6 +105,11 @@ class AutoEncoder(classae.GenericAutoEncoder):
 
 					grad_bias = np.mean(delta, axis=0)# dJ/dB is error only, no regularisation for biases
 					
+				if layer.hidden_type == "RELU" :
+					delta = delta * utils.relu_prime(layer.output)
+
+					grad_bias = np.mean(delta, axis=0)# dJ/dB is error only, no regularisation for biases
+					
 				elif layer.hidden_type == "LINEAR":
 					grad_bias = np.mean(layer.output - layer.hidden_biases, axis=0)/N
 					
@@ -236,7 +241,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					prim = sigmoid_deriv
 					
 					grad_bias = np.mean(delta, axis=0)# dJ/dB is error only, no regularisation for biases
+				if layer.hidden_type == "RELU" :
+					prim = utils.relu_prime(layer.output)
 					
+					grad_bias = np.mean(delta, axis=0)# dJ/dB is error only, no regularisation for biases
 				elif layer.hidden_type == "LINEAR":
 					#grad_bias = np.mean(delta, axis=0)
 					grad_bias = np.mean(layer.output - layer.hidden_biases, axis=0)/N
@@ -456,6 +464,8 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					
 				if self.layers[jj].hidden_type == 'SIGMOID':
 					delta *= utils.sigmoid_prime(self.layers[jj].activation.T)
+				if self.layers[jj].hidden_type == 'RELU':
+					delta *= utils.relu_prime(self.layers[jj].activation.T)
 				elif self.layers[jj].hidden_type == 'LINEAR':
 					pass # Nothing more to do
 				else:

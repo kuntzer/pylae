@@ -133,6 +133,15 @@ def sigmoid(x):
 def sigmoid_prime(x):
 	return sigmoid(x) * (1. - sigmoid(x))
 
+def relu(x):
+	return np.maximum(np.zeros_like(x), x)
+
+def relu_prime(x):
+	
+	x[x <= 0] = 0
+	x[x > 0] = 1
+	
+	return x
 
 def KL_divergence(x, y):
 	return x * np.log(x / y) + (1. - x) * np.log((1. - x) / (1. - y))

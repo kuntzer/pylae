@@ -29,8 +29,9 @@ class AE_layer():
 		activation = self.compute_visible(hidden_data)
 		
 		if(self.visible_type == "SIGMOID"):
-			
 			m_output = utils.sigmoid(activation)
+		elif(self.visible_type == "RELU"):
+			m_output = utils.relu(activation)
 		elif(self.visible_type == "LINEAR"):
 			pass # Nothing to do here
 		else:
@@ -55,6 +56,8 @@ class AE_layer():
 		
 		if(self.hidden_type == "SIGMOID"):
 			m_output = utils.sigmoid(m_output)
+		elif(self.visible_type == "RELU"):
+			m_output = utils.relu(m_output)
 		elif(self.hidden_type == "LINEAR"):
 			pass # Nothing to do here
 		else:

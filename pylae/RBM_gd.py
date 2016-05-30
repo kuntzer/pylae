@@ -7,8 +7,8 @@ class RBM(layer.AE_layer):
 				max_epoch_without_improvement=50, early_stop=True):
 		"""
 		:param hidden_nodes: Number of neurons in layer
-		:param visible_type: `SIGMOID` or `LINEAR`, linear for in-/outputs
-		:param hidden_type: `SIGMOID` or `LINEAR`, sigmoid for hidden layers
+		:param visible_type: `SIGMOID`, `RELU` or `LINEAR`, linear for in-/outputs
+		:param hidden_type: `SIGMOID`, `RELU` or `LINEAR`, sigmoid for hidden layers
 		:param mini_batch: number of training sample
 		:param max_epoch_without_improvement: how many iterations should be done after best performance is 
 			reached to probe the rmsd behaviour. 
@@ -70,6 +70,8 @@ class RBM(layer.AE_layer):
 				nw = np.dot(data, vishid) + np.tile(hidbiases, (N, 1))
 				if self.hidden_type == "SIGMOID":
 					pos_hidprobs = utils.sigmoid(nw)
+				if self.hidden_type == "RELU":
+					pos_hidprobs = utils.relu(nw)
 				elif self.hidden_type == "LINEAR": 
 					pos_hidprobs = nw
 				
@@ -79,7 +81,7 @@ class RBM(layer.AE_layer):
 				pos_hidact = np.sum(pos_hidprobs, 0)
 				pos_visact = np.sum(data, 0)
 				## END OF POSITIVE PHASE ################################################
-				if self.hidden_type == "SIGMOID":
+				if self.hidden_type == "SIGMOID" or self.hidden_type == "RELU":
 					ran = np.random.rand(N, self.hidden_nodes)
 					pos_hidstates = pos_hidprobs > ran
 				elif self.hidden_type == "LINEAR":
@@ -92,6 +94,8 @@ class RBM(layer.AE_layer):
 				# TODO: Do this only if visible type is sigmoid see C++ line 262 and next
 				if self.visible_type == "SIGMOID":
 					neg_data = utils.sigmoid(nw)
+				if self.visible_type == "RELU":
+					neg_data = utils.relu(nw)
 				else:
 					neg_data = nw
 				
@@ -99,6 +103,8 @@ class RBM(layer.AE_layer):
 
 				if self.hidden_type == "SIGMOID":
 					neg_hidprobs = utils.sigmoid(nw)
+				if self.hidden_type == "RELU":
+					neg_hidprobs = utils.relu(nw)
 				else: 
 					neg_hidprobs = nw
 				

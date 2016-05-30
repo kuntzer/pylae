@@ -212,8 +212,15 @@ class AutoEncoder(classae.GenericAutoEncoder):
 						sparsity_cost += beta * np.sum(u.KL_divergence(rho, rho_hat))
 	
 					delta = self.layers[jj+1].weights.dot(delta) + beta * sparsity_delta
-					
-				delta *= u.sigmoid_prime(self.layers[jj].activation.T)
+				
+				if self.layers[jj].hidden_type == 'SIGMOID':
+					delta *= u.sigmoid_prime(self.layers[jj].activation.T)
+				elif self.layers[jj].hidden_type == 'RELU':
+					delta *= u.relu_prime(self.layers[jj].activation.T)
+				elif self.layers[jj].hidden_type == 'LINEAR':
+					pass 
+				else:
+					raise ValueError("Unknown activation function %s" % self.layers[jj].hidden_type)
 				
 				grad_w = delta.dot(self.layers[jj].input) / m + lambda_ * self.layers[jj].weights.T
 				grad_b = np.mean(delta, axis=1)

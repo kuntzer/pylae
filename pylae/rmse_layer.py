@@ -102,9 +102,22 @@ class Layer(layer.AE_layer):
 		#delta = -(data - h)
 		#dEdvb = np.mean(delta, axis=1)
 		#delta = np.dot(delta, self.weights)# (self.weights.T).dot(delta)
-		deltaL = (h - data) * u.sigmoid_prime(activation_last.T)
+		if(self.hidden_type == "SIGMOID"):
+			prime = u.sigmoid_prime(activation_last.T)
+		elif(self.visible_type == "RELU"):
+			prime = u.relu_prime(activation_last.T)
+		elif(self.hidden_type == "LINEAR"):
+			prime = activation_last.T
+		deltaL = (h - data) * prime
 		dEdvb = np.mean(deltaL, axis=1)
-		deltal = np.dot((self.weights.T), deltaL) * u.sigmoid_prime(self.activation.T)
+		
+		if(self.hidden_type == "SIGMOID"):
+			prime = u.sigmoid_prime(self.activation.T)
+		elif(self.visible_type == "RELU"):
+			prime = u.relu_prime(self.activation.T)
+		elif(self.hidden_type == "LINEAR"):
+			prime = self.activation.T
+		deltal = np.dot((self.weights.T), deltaL) * prime
 		dEdhb = np.mean(deltal, axis=1)
 		
 		dEdw = deltal.dot(data.T).T / m + lambda_ * self.weights / m

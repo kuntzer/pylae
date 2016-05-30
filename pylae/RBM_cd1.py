@@ -70,15 +70,23 @@ class RBM(layer.AE_layer):
 			m_hidden_biases += momentum_hidden_biases * learning_rate
 			
 			# Reconstruction error, no sampling done, using raw probability
-			
-			hidden_state = u.sigmoid(np.dot(data_train, m_weights) \
-										+ np.tile(hidden_biases, (N,1)))
+			output = np.dot(data_train, m_weights) \
+										+ np.tile(hidden_biases, (N,1))
+			if self.visible_type == "SIGMOID":
+				hidden_state = u.sigmoid(output)
+			elif self.visible_type == "RELU":
+				hidden_state = u.relu(output)
+			elif self.visible_type == "LINEAR":
+				hidden_state = output
+				
 			
 			reconstruction = np.dot(hidden_state, m_weights.T) +  \
 										+ np.tile(visible_biases, (N,1))
 
 			if self.visible_type == "SIGMOID":
 				reconstruction = u.sigmoid(reconstruction)
+			elif self.visible_type == "RELU":
+				reconstruction = u.relu(reconstruction)
 				
 			##################################################
 				

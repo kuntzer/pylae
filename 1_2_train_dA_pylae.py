@@ -1,3 +1,4 @@
+
 #=================================================================================================#
 
 import numpy as np
@@ -101,7 +102,6 @@ else:
 	train = False
 	pca_train = False
 	do_meas_params = False
-do_meas_params = True
 
 #cost_fct = 'cross-entropy'
 cost_fct = 'L2'

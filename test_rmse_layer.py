@@ -72,7 +72,7 @@ def central_coeffs(size, x, y):
 	return X, Y
 
 n_comp = 100
-dA = pylae.rmse_layer.Layer(n_comp, 'SIGMOID', 'SIGMOID', 0, 50)#[0.0,0.3])
+dA = pylae.rmse_layer.Layer(n_comp, 'RELU', 'RELU', 0, 50, corruption=0.2)#[0.0,0.3])
 
 size = 28
 
@@ -116,7 +116,7 @@ X, Y = central_coeffs(size, c, c)
 
 
 
-dA.train(train, show=True, regularisation=-0.0001)
+dA.train(train, show=False, regularisation=0.)
 
 
 tiles=u.tile_raster_images(
