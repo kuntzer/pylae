@@ -3,6 +3,7 @@ import layer
 import scipy.optimize
 import utils as u
 import pylab as plt
+import copy
 
 class Layer(layer.AE_layer):
 	def __init__(self, hidden_nodes, visible_type, hidden_type, mini_batch, iterations, 
@@ -40,6 +41,16 @@ class Layer(layer.AE_layer):
 			show = False
 		else:
 			show = params['show']
+			
+		if not 'dropout' in params:
+			dropout = None
+		else:
+			dropout = params['dropout']
+			
+		if not 'sparsity' in params:
+			sparsity = None
+		else:
+			sparsity = params['sparsity']
 		"""
 		if not ('X' in params and 'Y' in params and 'E1' in params and 'E2' in params and 'R2' in params):
 			raise RuntimeError("Need the X, Y arrays and E1, E2, R2!")
@@ -52,14 +63,39 @@ class Layer(layer.AE_layer):
 			F = params['F'].T
 		"""
 		
+		if self.corruption is not None:
+			cdata = self._corrupt(data)
+		else:
+			cdata = data
+
 		# Unroll theta
 		self.weights, self.visible_biases, self.hidden_biases = self._unroll(theta)
 
 		# Forward passes
-		h, activation_last = self.full_feedforward(data.T, return_activation=True)
+		ch, nactivation_last = self.full_feedforward(cdata.T, return_activation=True, dropout=dropout)
+		h, activation_last, hidden_data = self.full_feedforward(data.T, return_activation=True, dropout=dropout, return_hidden=True)
+		ch = ch.T # TODO: clear this out! Really weird
 		h = h.T
+		
+		rhohat = np.mean(hidden_data, axis=0)
 
-			
+		#exit()
+		"""
+		plt.figure()
+		plt.subplot(221)
+		plt.imshow((cdata.T)[0].reshape(24,24), interpolation="None")
+		plt.title('cdata')
+		plt.subplot(222)
+		plt.imshow((data.T)[0].reshape(24,24), interpolation="None")
+		plt.title('data')
+		plt.subplot(223)
+		plt.imshow((ch.T)[0].reshape(24,24), interpolation="None")
+		plt.title('ch')
+		plt.subplot(224)
+		plt.imshow((h.T)[0].reshape(24,24), interpolation="None")
+		plt.title('h')
+		plt.show()
+		"""
 		# Compute the gradients:
 		# http://neuralnetworksanddeeplearning.com/chap3.html for details
 		"""
@@ -102,30 +138,32 @@ class Layer(layer.AE_layer):
 		#delta = -(data - h)
 		#dEdvb = np.mean(delta, axis=1)
 		#delta = np.dot(delta, self.weights)# (self.weights.T).dot(delta)
-		if(self.hidden_type == "SIGMOID"):
-			prime = u.sigmoid_prime(activation_last.T)
-		elif(self.visible_type == "RELU"):
-			prime = u.relu_prime(activation_last.T)
-		elif(self.hidden_type == "LINEAR"):
-			prime = activation_last.T
-		deltaL = (h - data) * prime
+		prime = self.prime_activate(activation_last.T)
+		deltaL = (ch - data) * prime
 		dEdvb = np.mean(deltaL, axis=1)
 		
-		if(self.hidden_type == "SIGMOID"):
-			prime = u.sigmoid_prime(self.activation.T)
-		elif(self.visible_type == "RELU"):
-			prime = u.relu_prime(self.activation.T)
-		elif(self.hidden_type == "LINEAR"):
-			prime = self.activation.T
-		deltal = np.dot((self.weights.T), deltaL) * prime
-		dEdhb = np.mean(deltal, axis=1)
+		prime = self.prime_activate(self.activation.T)
+		
+		if sparsity is not None:
+			spars_cost = sparsity[0] * np.sum(u.KL_divergence(sparsity[1], rhohat))
+			spars_grad = sparsity[0] * u.KL_prime(sparsity[1], rhohat)
+			spars_grad = np.matrix(spars_grad).T
+			#spars_grad = np.tile(spars_grad, m).reshape(m,self.hidden_nodes).T
+			print rhohat.mean(), 'cost:', spars_cost, '<<<<<<<<<<<<<<<'
+		else:
+			spars_cost = 0.
+			spars_grad = 0.
+		deltal = np.multiply((np.dot((self.weights.T), deltaL) + spars_grad), prime)
+		deltal = np.array(deltal)
+		dEdhb = np.mean(deltal, axis=1) 
 		
 		dEdw = deltal.dot(data.T).T / m + lambda_ * self.weights / m
 
-		
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 		
-		cost = np.sum((h - data) ** 2) / (2 * m) + ((lambda_ / 2) * np.abs(self.weights)**2).sum()
+		cost = np.sum((h - data) ** 2) / (2 * m) + ((lambda_ / 2) * np.abs(self.weights)**2).sum() \
+				+ spars_cost
+		#print 'tot cost', cost
 	
 		if show:
 			rid = np.random.uniform(0, m)
@@ -171,14 +209,15 @@ class Layer(layer.AE_layer):
 		elif np.shape(np.asarray(self.corruption).T) == np.shape(data):
 			cdata = self.corruption.T
 		else:
-			print np.amin(data), np.amax(data), np.mean(data), np.std(data)
+			
 			if self.data_std is not None and self.data_norm is not None:
 				scales = np.random.uniform(low=self.corruption[0], high=self.corruption[1], size=data.shape[1])
 				
 				data = u.unnormalise(data, self.data_norm[0], self.data_norm[1])
 				data = u.unstandardize(data, self.data_std[0], self.data_std[1])
 				
-				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales]
+				p = np.random.binomial
+				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales] # * p(1, 0.5)
 				noise_maps = np.asarray(noise_maps)
 				
 				cdata = data + noise_maps.T
@@ -190,11 +229,13 @@ class Layer(layer.AE_layer):
 				min_thr = 1e-6
 				max_thr = 0.99999
 				
-				print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
+				if ((cdata < min_thr).sum() > 0 or (cdata > max_thr).sum() > 0) and False:
+					print np.amin(data), np.amax(data), np.mean(data), np.std(data)
+					print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
 				cdata[cdata < min_thr] = min_thr
 				cdata[cdata > max_thr] = max_thr
 				
-				print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
+				#print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
 			else:
 				raise RuntimeError("Can't normalise the data. You must provide the normalisation and standardisation values. Giving up.")
 		#print np.amin(data), np.amax(data)
@@ -212,7 +253,7 @@ class Layer(layer.AE_layer):
 		self.weights = 0.001 * np.random.randn(numdims, self.hidden_nodes)
 		
 		# This apparently is better, but definitely noisier (or plain worse)!
-		self.weights2 = 4 * np.random.uniform(
+		self.weights2 = np.random.uniform(
 					low=-np.sqrt(6. / (numdims + self.hidden_nodes)),
 					high=np.sqrt(6. / (numdims + self.hidden_nodes)),
 					size=(numdims, self.hidden_nodes))
@@ -226,11 +267,15 @@ class Layer(layer.AE_layer):
 		
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
-		J = lambda x: self.cost(x, data, log_cost=True, **kwargs)
-		
-		options_ = {'maxiter': self.iterations, 'disp': verbose, 'ftol' : 10. * np.finfo(float).eps, 'gtol': 1e-9}
-		result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
-		opt_theta = result.x
+		if self.iterations:
+			J = lambda x: self.cost(x, data, log_cost=True, **kwargs)
+			
+			options_ = {'maxiter': self.iterations, 'disp': verbose, 'ftol' : 10. * np.finfo(float).eps, 'gtol': 1e-9}
+			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
+			opt_theta = result.x
+		else:
+			opt_theta = theta
+			result = None
 		
 		###########################################################################################
 		# Unroll the state vector and saves it to self.	

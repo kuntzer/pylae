@@ -24,25 +24,57 @@ class AE_layer():
 	def compute_visible(self, m_input):
 		return np.dot(m_input, self.weights.T) + self.visible_biases
 	
-	def full_feedforward(self, data, return_activation=False):
-		hidden_data = self.feedforward_memory(data)
-		activation = self.compute_visible(hidden_data)
+	def activate(self, activation):
 		
 		if(self.visible_type == "SIGMOID"):
 			m_output = utils.sigmoid(activation)
 		elif(self.visible_type == "RELU"):
 			m_output = utils.relu(activation)
+		elif(self.visible_type == "LEAKY_RELU"):
+			m_output = utils.leaky_relu(activation)
 		elif(self.visible_type == "LINEAR"):
-			pass # Nothing to do here
+			m_output = activation
+		else:
+			raise NotImplemented("Unrecogonised hidden type")
+	
+		return m_output
+	
+	def prime_activate(self, activation):
+		if(self.hidden_type == "SIGMOID"):
+			prime = utils.sigmoid_prime(activation)
+		elif(self.visible_type == "RELU"):
+			prime = utils.relu_prime(activation)
+		elif(self.visible_type == "LEAKY_RELU"):
+			prime = utils.leaky_relu_prime(activation)
+		elif(self.hidden_type == "LINEAR"):
+			prime = activation
 		else:
 			raise NotImplemented("Unrecogonised hidden type")
 			
-		if return_activation:
+		return prime
+	
+	def full_feedforward(self, data, return_activation=False, dropout=None, return_hidden=False):
+		hidden_data = self.feedforward_memory(data, dropout=dropout)
+		activation = self.compute_visible(hidden_data)
+		
+		m_output = self.activate(activation)
+			
+		#if dropout is not None:
+			#print 'dropout!'
+			#dropouts = np.random.binomial(1, dropout, size=m_output.shape) * (1. / (1. - dropout))
+			#m_output *= dropouts
+			#activation *= dropouts
+			
+		if return_activation and return_hidden:
+			return m_output, activation, hidden_data
+		elif return_activation:
 			return m_output, activation
+		elif return_hidden:
+			return hidden_data
 		
 		return m_output
 		
-	def feedforward(self, data, mem=False, debug=False):	
+	def feedforward(self, data, mem=False, debug=False, dropout=None):	
 		m_input = data 
 		if debug:
 			print np.shape(m_input), '< data'
@@ -50,23 +82,21 @@ class AE_layer():
 			print np.shape(self.hidden_biases), '< bias'
 			print np.shape(m_input), np.shape(self.weights)
 		
-		m_output = self.compute_layer(m_input)
+		activation = self.compute_layer(m_input)
 		
-		if mem: self.activation = m_output
-		
-		if(self.hidden_type == "SIGMOID"):
-			m_output = utils.sigmoid(m_output)
-		elif(self.visible_type == "RELU"):
-			m_output = utils.relu(m_output)
-		elif(self.hidden_type == "LINEAR"):
-			pass # Nothing to do here
-		else:
-			raise NotImplemented("Unrecogonised hidden type")
-			
+		m_output = self.activate(activation)
+
+		if dropout is not None:
+			print 'dropout!'
+			dropouts = np.random.binomial(1, 1.-dropout, size=m_output.shape) * (1. / (1. - dropout))
+			m_output *= dropouts
+			activation *= dropouts
+
+		if mem: self.activation = activation
 		return m_output
 	
-	def feedforward_memory(self, data):
-		m_output = self.feedforward(data, mem = True)
+	def feedforward_memory(self, data, dropout=None):
+		m_output = self.feedforward(data, mem = True, dropout=dropout)
 		self.output = m_output
 		self.input = data
 		

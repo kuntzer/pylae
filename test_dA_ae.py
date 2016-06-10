@@ -15,14 +15,14 @@ dA = pylae.dA.AutoEncoder(network_name)
 
 n_pca=16
 
-architecture = [500, 200, 80, n_pca]
+architecture = [2000, n_pca]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 
 architecture = [100, n_pca]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID"]
 
-pre_train = False
-train = False
+pre_train = True
+train = True
 cost_fct = 'cross-entropy'
 corruption = patches#[0., 0.3]
 

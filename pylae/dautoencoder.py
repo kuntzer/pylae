@@ -7,7 +7,7 @@ import scipy.optimize
 
 class AutoEncoder(classae.GenericAutoEncoder):
 	
-	def __init__(self, name='ae', layer_type="dA", directory='', verbose=False):
+	def __init__(self, name='ae', layer_type="dA", directory='', verbose=False, mkdir=True):
 		self.name = name
 		self.is_pretrained = False
 		self.is_trained = False
@@ -15,7 +15,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		self.layer_type = layer_type
 		
 		self.filepath = os.path.join(directory, name, layer_type)
-		if not os.path.isdir(self.filepath):
+		if not os.path.isdir(self.filepath) and mkdir:
 			os.makedirs(self.filepath)
 		self.directory = directory
 		self.train_history = []
@@ -54,8 +54,9 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		self.is_pretrained = True
 		self.set_autoencoder(layers)
-	
-	def fine_tune(self, data, iterations=400, regularisation = 0.003, sparsity=0.1, beta=3.,
+		print 'Pre-training complete.'
+		
+	def fine_tune(self, data, iterations=400, regularisation = 0.003, sparsity=0.1, beta=3., dropout=None,
 					method='L-BFGS-B', verbose=True, return_info=False, corruption=None, cost_fct='L2'):
 
 		# TODO:
@@ -80,7 +81,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# Optimisation of the weights and biases according to the cost function
 		# under the constraint of regularisation and sparsity given by the user 
 		J = lambda x: self.cost(x, indices, weights_shape, biases_shape,
-			regularisation, sparsity, beta, data, corruption, cost_fct=cost_fct)
+			regularisation, sparsity, beta, data, corruption, cost_fct=cost_fct, dropout=dropout)
 		
 		if iterations >= 0:
 			options_ = {'maxiter': iterations, 'disp': verbose, 'ftol' : 10. * np.finfo(float).eps, 'gtol': 1e-9}
@@ -114,16 +115,15 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		elif np.shape(np.asarray(corruption).T) == np.shape(data):
 			cdata = corruption.T
 		else:
-			print np.amin(data), np.amax(data), np.mean(data), np.std(data)
 			if self.layers[0].data_std is not None and self.layers[0].data_norm is not None:
 				scales = np.random.uniform(low=corruption[0], high=corruption[1], size=data.shape[1])
 				
 				data = u.unnormalise(data, self.layers[0].data_norm[0], self.layers[0].data_norm[1])
 				data = u.unstandardize(data, self.layers[0].data_std[0], self.layers[0].data_std[1])
 				
-				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales]
+				p = np.random.binomial
+				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales] #* p(1, 0.5) 
 				noise_maps = np.asarray(noise_maps)
-				
 				cdata = data + noise_maps.T
 				
 				cdata, _, _ = u.standardize(cdata, self.layers[0].data_std[0], self.layers[0].data_std[1])
@@ -132,18 +132,19 @@ class AutoEncoder(classae.GenericAutoEncoder):
 				# Just making sure we're not out of bounds:
 				min_thr = 1e-6
 				max_thr = 0.99999
-				print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
+				
+				if ((cdata < min_thr).sum() > 0 or (cdata > max_thr).sum() > 0) and False:
+					print np.amin(data), np.amax(data), np.mean(data), np.std(data)
+					print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
+					print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
+					print 
 				cdata[cdata < min_thr] = min_thr
 				cdata[cdata > max_thr] = max_thr
 				
-				print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
-		
-		#print np.amin(data), np.amax(data)
-		#print np.amin(cdata), np.amax(cdata)
 		return cdata
 	
 	def cost(self, theta, indices, weights_shape, biases_shape, lambda_, sparsity, beta,\
-			 data, corruption, cost_fct, log_cost=True):
+			 data, corruption, cost_fct, dropout, log_cost=True):
 
 		if cost_fct == 'cross-entropy':
 			if beta != 0 or sparsity != 0:
@@ -167,8 +168,8 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			cdata = self._corrupt(data, corruption)
 		else:
 			cdata = data
-		ch = self.feedforward(cdata.T).T
-		h = self.feedforward(data.T).T
+		ch = self.feedforward(cdata.T, dropout=dropout).T
+		h = self.feedforward(data.T, dropout=dropout).T
 
 		# Sparsity
 		sparsity_cost = 0
@@ -180,43 +181,40 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# Cost function
 
 		if cost_fct == 'L2':
-			
-			if corruption is not None:
-				print 'WARNING: EXPERIMENTAL'#raise NotImplemented('corruption not covered in L2')
-			
+		
 			# Back-propagation
 			delta = -(data - ch)
 		
 			# Compute the gradient:
 			for jj in range(self.mid * 2 - 1, -1, -1):
-
 				if jj < self.mid * 2 - 1:
-					# TODO: Sparsity: do we want it at every (hidden) layer ?? 
-					"""print jj
-					print np.shape(self.layers[2].output.T)
-					
-					print hn
-					print self.layers[2].hidden_nodes
-					print m 
-					exit()"""
+
 					hn = self.layers[jj].output.T.shape[0]
-					#print hn, np.shape(self.layers[2].output.T)
 					rho_hat = np.mean(self.layers[jj].output.T, axis=1)
-					rho = np.tile(sparsity, hn)
-					#print np.shape(rho_hat), rho.shape
+
 					if beta == 0:
-						sparsity_delta = 0
+						sparsity_grad = 0
 						sparsity_cost = 0
 					else:
-						sparsity_delta = np.tile(- rho / rho_hat + (1 - rho) / (1 - rho_hat), (m, 1)).transpose()
+						rho = sparsity
+						
+						sparsity_cost += beta * np.sum(u.KL_divergence(rho, rho_hat))
+						sparsity_grad = beta * u.KL_prime(rho, rho_hat)
+						sparsity_grad = np.matrix(sparsity_grad).T
+						#spars_grad = np.tile(spars_grad, m).reshape(m,self.hidden_nodes).T
+						#print rho_hat.mean(), 'cost:', sparsity_cost, '<<<<<<<<<<<<<<<'
+						
 						sparsity_cost += beta * np.sum(u.KL_divergence(rho, rho_hat))
 	
-					delta = self.layers[jj+1].weights.dot(delta) + beta * sparsity_delta
+					delta = self.layers[jj+1].weights.dot(delta) + beta * sparsity_grad
+					delta = np.array(delta)
 				
 				if self.layers[jj].hidden_type == 'SIGMOID':
 					delta *= u.sigmoid_prime(self.layers[jj].activation.T)
 				elif self.layers[jj].hidden_type == 'RELU':
 					delta *= u.relu_prime(self.layers[jj].activation.T)
+				elif self.layers[jj].hidden_type == 'LEAKY_RELU':
+					delta *= u.leaky_relu_prime(self.layers[jj].activation.T)
 				elif self.layers[jj].hidden_type == 'LINEAR':
 					pass 
 				else:
@@ -236,6 +234,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			cost = np.sum((h - data) ** 2) / (2 * m) + (lambda_ / 2) * \
 				(sum([((self.layers[jj].weights)**2).sum() for jj in range(self.mid * 2)])) + \
 				sparsity_cost
+			#print 'tot cost', cost
 		elif cost_fct == 'cross-entropy':
 			# Compute the gradients:
 			# http://neuralnetworksanddeeplearning.com/chap3.html for details

@@ -136,15 +136,40 @@ def sigmoid_prime(x):
 def relu(x):
 	return np.maximum(np.zeros_like(x), x)
 
+def leaky_relu(x, alpha=0.01):
+	
+	res = np.ones_like(x) * x
+	res[x <= 0.] = alpha
+
+	return res
+
 def relu_prime(x):
 	
-	x[x <= 0] = 0
-	x[x > 0] = 1
+	res = np.ones_like(x) * x
+	res[x <= 0] = 0.
+	res[x > 0] = 1.
 	
-	return x
+	return res
+
+def leaky_relu_prime(x, alpha=0.01):
+	
+	res = np.ones_like(x) * x
+	res[x <= 0] = alpha
+	res[x > 0] = 1.
+	
+	return res
 
 def KL_divergence(x, y):
+	# Making sure that the KL doesn't blow up 
+	x = np.clip(x, 1e-6, 0.99999)
+	y = np.clip(y, 1e-6, 0.99999)
 	return x * np.log(x / y) + (1. - x) * np.log((1. - x) / (1. - y))
+
+def KL_prime(x, y):
+	# Making sure that the KL doesn't blow up 
+	x = np.clip(x, 1e-6, 0.99999)
+	y = np.clip(y, 1e-6, 0.99999)
+	return -x/y + (1. - x) / (1. - y)
 
 def cross_entropy(target, actual):
 	cost = - np.sum(target * np.log(actual) + (1. - target) * np.log(1. - actual), axis=1) 
@@ -281,3 +306,12 @@ def tile_raster_images(X, img_shape, tile_shape, tile_spacing=(0, 0),
 						tile_col * (W + Ws): tile_col * (W + Ws) + W
 					] = this_img * c
 		return out_array
+
+def mkdir(somedir):
+	"""
+	A wrapper around os.makedirs.
+	:param somedir: a name or path to a directory which I should make.
+	"""
+	if not os.path.isdir(somedir):
+		os.makedirs(somedir)
+		

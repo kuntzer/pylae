@@ -5,7 +5,7 @@ import os
 
 class GenericAutoEncoder():
 	
-	def __init__(self, name='ae', rbm_type="gd", directory='', verbose=False):
+	def __init__(self, name='ae', rbm_type="gd", directory='', verbose=False, mkdir=True):
 		self.name = name
 		self.is_pretrained = False
 		self.is_trained = False
@@ -13,10 +13,32 @@ class GenericAutoEncoder():
 		self.rbm_type = rbm_type
 		
 		self.filepath = os.path.join(directory, name, rbm_type)
-		if not os.path.isdir(self.filepath):
+		if not os.path.isdir(self.filepath) and mkdir:
 			os.makedirs(self.filepath)
 		self.directory = directory
 		self.train_history = []
+		
+	def info(self):
+		"""
+		Prints out all the variables for a given galaxy of the class
+		"""
+		import inspect
+	
+		message = "All variables available for this autoencoder"		
+		print message
+		print '-'*len(message)
+		attributes = inspect.getmembers(self, lambda a:not(inspect.isroutine(a)))
+		for a in attributes:
+			if (a[0].startswith('__') and a[0].endswith('__')): continue
+			print a[0], "=", a[1]
+			
+	def clear_mem(self):
+		self.rbms = None
+			
+		for jj in range(len(self.layers)):
+			self.layers[jj].output = None
+			self.layers[jj].activation = None
+			self.layers[jj].input = None
 		
 	def set_autoencoder(self, encoder):
 		"""
@@ -40,7 +62,7 @@ class GenericAutoEncoder():
 			layer.hidden_type, layer.visible_type = layer.visible_type, layer.hidden_type
 			
 		
-	def feedforward(self, data):
+	def feedforward(self, data, dropout=None):
 		"""
 		Encodes and decodes the data using the full autoencoder
 		:param data: The data in the same format than the training data
@@ -49,11 +71,11 @@ class GenericAutoEncoder():
 		"""
 		for layer in self.layers :
 			#print layer.hidden_nodes, '-'*30
-			data = layer.feedforward_memory(data)
+			data = layer.feedforward_memory(data, dropout=dropout)
 
 		return data
 	
-	def feedforward_to_layer(self, data, j):
+	def feedforward_to_layer(self, data, j, dropout=None):
 		"""
 		Encodes and decodes the data using the full autoencoder
 		:param data: The data in the same format than the training data
@@ -62,7 +84,7 @@ class GenericAutoEncoder():
 		:returns: the fed-forward data
 		"""
 		for layer in self.layers[:j+1] : # TODO: +1, really?
-			data = layer.feedforward(data)
+			data = layer.feedforward(data, dropout=dropout)
 
 		return data
 	
@@ -109,7 +131,7 @@ class GenericAutoEncoder():
 		self.is_pretrained = True
 		self.set_autoencoder(rbms)
 		
-	def save_rbms(self, filepath=None):
+	def save_rbms(self, filepath=None, clear_mem=True):
 		"""
 		Saves the pre-trained rbms to a pickle file.
 		
@@ -117,6 +139,9 @@ class GenericAutoEncoder():
 		"""
 		if filepath is None:
 			filepath = self.filepath
+			
+		if clear_mem:
+			self.clear_mem()
 		
 		utils.writepickle(self.rbms, os.path.join(filepath, 'rmbs.pkl'))
 		
@@ -198,9 +223,12 @@ class GenericAutoEncoder():
 
 		return w, b
 	
-	def save(self, filepath=None):
+	def save(self, filepath=None, clear_mem=True):
 		if filepath is None:
 			filepath = self.filepath
+			
+		if clear_mem:
+			self.clear_mem()
 			
 		utils.writepickle(self, os.path.join(filepath, 'ae.pkl'))
 
@@ -259,7 +287,7 @@ class GenericAutoEncoder():
 		plt.setp([[a.get_xticklabels() for a in b] for b in axes[:,]], visible=False)
 		plt.setp([[a.get_yticklabels() for a in b] for b in axes[:,]], visible=False)
 
-	def display_network(self, layer_number=0):
+	def display_network(self, layer_number=0, show=True):
 		import pylab as plt
 		opt_normalize = True
 		opt_graycolor = True
@@ -298,9 +326,9 @@ class GenericAutoEncoder():
 						A[:, k].reshape(sz, sz) / np.max(np.abs(A))
 				k += 1
 	
-		plt.figure()
+		fig = plt.figure()
 		plt.imshow(image, interpolation="nearest", cmap=plt.get_cmap('gray'))
-	
+		return fig
 		#plt.show()
 	
 	def display_train_history(self):
