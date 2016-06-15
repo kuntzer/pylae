@@ -37,7 +37,6 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		for ii in range(len(architecture)):
 			print "Pre-training layer %d..." % (ii + 1)
 			if np.shape(corruption) == shape_previous_layer and ii > 0:
-				print 'here, coucou'
 				corruption_lvl = layers[ii-1].feedforward(corruption)
 			else:
 				corruption_lvl = corruption
@@ -133,11 +132,11 @@ class AutoEncoder(classae.GenericAutoEncoder):
 				min_thr = 1e-6
 				max_thr = 0.99999
 				
-				if ((cdata < min_thr).sum() > 0 or (cdata > max_thr).sum() > 0) and False:
-					print np.amin(data), np.amax(data), np.mean(data), np.std(data)
-					print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
-					print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
-					print 
+				#if ((cdata < min_thr).sum() > 0 or (cdata > max_thr).sum() > 0) and False:
+				#	print np.amin(data), np.amax(data), np.mean(data), np.std(data)
+				#	print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
+				#	print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
+				#	print 
 				cdata[cdata < min_thr] = min_thr
 				cdata[cdata > max_thr] = max_thr
 				
@@ -150,7 +149,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			if beta != 0 or sparsity != 0:
 				beta = 0
 				sparsity = 0
-				print 'WARNING: Cross-entropy does not support sparsity'
+				#print 'WARNING: Cross-entropy does not support sparsity'
 
 		# Unrolling the weights and biases
 		for jj in range(self.mid * 2):

@@ -87,7 +87,7 @@ class Layer(layer.AE_layer):
 		elif np.shape(np.asarray(self.corruption).T) == np.shape(data):
 			cdata = self.corruption.T
 		else:
-			print np.amin(data), np.amax(data), np.mean(data), np.std(data)
+			#print np.amin(data), np.amax(data), np.mean(data), np.std(data)
 			if self.data_std is not None and self.data_norm is not None:
 				scales = np.random.uniform(low=self.corruption[0], high=self.corruption[1], size=data.shape[1])
 				
@@ -106,11 +106,11 @@ class Layer(layer.AE_layer):
 				min_thr = 1e-6
 				max_thr = 0.99999
 				
-				print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
+				#print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
 				cdata[cdata < min_thr] = min_thr
 				cdata[cdata > max_thr] = max_thr
 				
-				print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
+				#print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
 			else:
 				raise RuntimeError("Can't normalise the data. You must provide the normalisation and standardisation values. Giving up.")
 		#print np.amin(data), np.amax(data)
@@ -134,7 +134,7 @@ class Layer(layer.AE_layer):
 		
 		return weights, visible_biases, hidden_biases
 	
-	def train(self, data, data_std=None, data_norm=None, method='L-BFGS-B', verbose=True, return_info=False, **kwargs):
+	def train(self, data, data_std=[0.,1.], data_norm=[0., 1.], method='L-BFGS-B', verbose=True, return_info=False, weight=0.1, **kwargs):
 		# TODO: deal with minibatches!
 		
 		_, numdims = np.shape(data)
@@ -143,7 +143,7 @@ class Layer(layer.AE_layer):
 		#N = self.mini_batch
 		self.visible_dims = numdims
 		
-		self.weights = 0.1 * np.random.randn(numdims, self.hidden_nodes)
+		self.weights = weight * np.random.randn(numdims, self.hidden_nodes)
 		
 		# This apparently is better, but definitely noisier (or plain worse)!
 		self.weights2 = 4 * np.random.uniform(
@@ -156,7 +156,7 @@ class Layer(layer.AE_layer):
 					high=np.sqrt(1. / (numdims)),
 					size=(numdims, self.hidden_nodes))
 		
-		print 'WEIGHTS:', np.amin(self.weights), np.amax(self.weights), np.mean(self.weights), np.std(self.weights)
+		#print 'WEIGHTS:', np.amin(self.weights), np.amax(self.weights), np.mean(self.weights), np.std(self.weights)
 		
 		self.visible_biases = np.zeros(numdims)
 		self.hidden_biases = np.zeros(self.hidden_nodes)

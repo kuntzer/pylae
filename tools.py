@@ -205,7 +205,12 @@ def reconstruction_plots(test_nonoise, test_dataset, test_tilde, test_pca_tilde)
 
 	plt.show()
 	
-def analysis(datasets, parameters=None, names=None, outdir='.', do_meas_params=True, save=True):
+def meas_dataset(dataset):
+	npix = int(np.sqrt(np.shape(dataset)[1]))
+	rstamps = dataset.reshape(np.shape(dataset)[0], npix, npix)
+	return measure_stamps(rstamps)
+	
+def analysis(datasets, parameters=None, names=None, outdir='.', save=True, meas_params_done=None):
 	import pylab as plt
 	import pylae.figures as f
 	
@@ -215,23 +220,30 @@ def analysis(datasets, parameters=None, names=None, outdir='.', do_meas_params=T
 	
 	if parameters is None:
 		parameters = ['e1', 'e2', 'r2']
-	
-	fname_out_meas_params = os.path.join(outdir, 'meas_params.pkl')
-	
-	if do_meas_params:
-		for dataset, name in zip(datasets, names):
-			npix = int(np.sqrt(np.shape(dataset)[1]))
-			print 'Measuring %s...' % name, 
-			rstamps = dataset.reshape(np.shape(dataset)[0], npix, npix)
-			measurements = measure_stamps(rstamps)
-			
-			meas_params[name] = measurements
-			print 'done.'
-			
-		utils.writepickle(meas_params, fname_out_meas_params)
-	else:
-		meas_params = utils.readpickle(fname_out_meas_params)
 		
+	for dataset, name in zip(datasets, names):
+		if meas_params_done is not None and name in meas_params_done:
+			meas_params[name] = meas_params_done[name]
+			print '%s already measured, skipping' % name
+			continue
+
+		print 'Measuring %s...' % name, 
+		meas_params[name] = meas_dataset(dataset)
+		print 'done.'
+
+	# Just making sure that no nan is present
+	for idd, npa in enumerate(parameters):
+		x = meas_params["signal"][:,idd]
+		p = meas_params["reconstr"][:,idd]
+		
+		if idd < 2:
+			(meas_params["signal"][:,idd])[np.isnan(meas_params["signal"][:,idd])] = 0
+			(meas_params["reconstr"][:,idd])[np.isnan(meas_params["reconstr"][:,idd])] = 0
+		else:
+			(meas_params["signal"][:,idd])[np.isnan(meas_params["signal"][:,idd])] = np.nanmean(meas_params["signal"][:,idd])
+			(meas_params["reconstr"][:,idd])[np.isnan(meas_params["reconstr"][:,idd])] = np.nanmean(meas_params["reconstr"][:,idd])
+	
+	# Okay, ready for measuring
 	e_sig = np.sqrt(meas_params["signal"][:,0]**2 + meas_params["signal"][:,1]**2) / 2.
 		
 	es = np.sqrt(meas_params["reconstr"][:,0]**2 + meas_params["reconstr"][:,1]**2) / 2.
@@ -247,7 +259,7 @@ def analysis(datasets, parameters=None, names=None, outdir='.', do_meas_params=T
 		p = meas_params["reconstr"][:,idd]
 		y = p - meas_params["signal"][:,idd]
 		
-		(m, c) = scipy.polyfit(x, y, 1)
+		(m, c) = np.polyfit(x, y, 1)
 		mean = np.nanmean(y)
 		std = np.nanstd(p)
 		#res = {'%sm' % npa: m, '%sc' % npa: c, '%smean' % npa: mean, '%sstd' % npa: std}
@@ -255,7 +267,7 @@ def analysis(datasets, parameters=None, names=None, outdir='.', do_meas_params=T
 		res.append(c)
 		res.append(mean)
 		res.append(std)
-	
+
 	fig = plt.figure(figsize=(16,12))
 	
 	plt.subplot(241)
@@ -278,6 +290,8 @@ def analysis(datasets, parameters=None, names=None, outdir='.', do_meas_params=T
 	
 	if save:
 		f.savefig(os.path.join(outdir, 'results'), fig)
+
+	plt.close('all')
 
 	return res
 	

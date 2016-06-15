@@ -149,7 +149,7 @@ class Layer(layer.AE_layer):
 			spars_grad = sparsity[0] * u.KL_prime(sparsity[1], rhohat)
 			spars_grad = np.matrix(spars_grad).T
 			#spars_grad = np.tile(spars_grad, m).reshape(m,self.hidden_nodes).T
-			print rhohat.mean(), 'cost:', spars_cost, '<<<<<<<<<<<<<<<'
+			#print rhohat.mean(), 'cost:', spars_cost, '<<<<<<<<<<<<<<<'
 		else:
 			spars_cost = 0.
 			spars_grad = 0.
@@ -229,20 +229,20 @@ class Layer(layer.AE_layer):
 				min_thr = 1e-6
 				max_thr = 0.99999
 				
-				if ((cdata < min_thr).sum() > 0 or (cdata > max_thr).sum() > 0) and False:
-					print np.amin(data), np.amax(data), np.mean(data), np.std(data)
-					print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
+				#if ((cdata < min_thr).sum() > 0 or (cdata > max_thr).sum() > 0) and False:
+				#	print np.amin(data), np.amax(data), np.mean(data), np.std(data)
+				#	print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
 				cdata[cdata < min_thr] = min_thr
 				cdata[cdata > max_thr] = max_thr
 				
 				#print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
 			else:
-				raise RuntimeError("Can't normalise the data. You must provide the normalisation and standardisation values. Giving up.")
+				raise RuntimeError("Can't normalise the data (%s, %s). You must provide the normalisation and standardisation values. Giving up." % (self.data_std, self.data_norm))
 		#print np.amin(data), np.amax(data)
 		#print np.amin(cdata), np.amax(cdata)
 		return cdata
 	
-	def train(self, data, data_std=None, data_norm=None, method='L-BFGS-B', verbose=True, return_info=False, **kwargs):
+	def train(self, data, data_std=[0.,1.], data_norm=[0., 1.], method='L-BFGS-B', verbose=True, return_info=False, weight=0.001, **kwargs):
 		# TODO: deal with minibatches!
 		_, numdims = np.shape(data)
 		self.data_std = data_std
@@ -250,7 +250,7 @@ class Layer(layer.AE_layer):
 		#N = self.mini_batch
 		self.visible_dims = numdims
 		
-		self.weights = 0.001 * np.random.randn(numdims, self.hidden_nodes)
+		self.weights = weight * np.random.randn(numdims, self.hidden_nodes)
 		
 		# This apparently is better, but definitely noisier (or plain worse)!
 		self.weights2 = np.random.uniform(

@@ -167,7 +167,7 @@ class GenericAutoEncoder():
 		:returns: encoded data
 		"""
 		for layer in self.layers[:self.mid] :
-			print "encoding, for dimensions", layer.weights.shape
+			if self.verbose: print "encoding, for dimensions", layer.weights.shape
 			data = layer.feedforward(data)
 			
 		return data
@@ -180,7 +180,7 @@ class GenericAutoEncoder():
 		:returns: decoded data
 		"""
 		for layer in self.layers[self.mid:] :
-			print "decoding, for dimensions", layer.weights.shape
+			if self.verbose: print "decoding, for dimensions", layer.weights.shape
 			data = layer.feedforward(data)
 			
 		return data
@@ -328,6 +328,7 @@ class GenericAutoEncoder():
 	
 		fig = plt.figure()
 		plt.imshow(image, interpolation="nearest", cmap=plt.get_cmap('gray'))
+		
 		return fig
 		#plt.show()
 	
