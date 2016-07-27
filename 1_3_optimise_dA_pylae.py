@@ -24,7 +24,7 @@ max_scale = 0.0012
 ids_train = range(2500)
 ids_test = range(5000, 7500)
 
-ncpu = 16
+ncpu = 8
 
 #=================================================================================================#
 
@@ -43,13 +43,12 @@ iteration_pre_train = 2000
 iteration_train = 4000
 
 b = list(itertools.product(*a))
-b = b[:2]
+b = b[:8]
 configurations = [[id_test, nb_comp, cost, activation_fct, regularisation, corruption, sparsity, weights] \
 	for id_test, (nb_comp, cost, activation_fct, regularisation, corruption, sparsity, weights) in enumerate(b)]
 
 #=================================================================================================#
 print 'Preparing for %d configurations' % len(b)
-exit()
 # Getting the data --------------------------------------------------------------------------------
 print 'Loading data...', 
 noisy_train = u.readpickle(path_in_dataset_train)[ids_train]
