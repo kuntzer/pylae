@@ -329,8 +329,8 @@ class GenericAutoEncoder():
 		fig = plt.figure()
 		plt.imshow(image, interpolation="nearest", cmap=plt.get_cmap('gray'))
 		
-		return fig
-		#plt.show()
+		#return fig
+		if show: plt.show()
 	
 	def display_train_history(self):
 		import pylab as plt
