@@ -13,7 +13,7 @@ test = images[50000:]
 
 dA = pylae.dA.AutoEncoder(network_name)
 
-n_pca=16
+n_pca=8
 
 architecture = [2000, n_pca]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
@@ -21,7 +21,10 @@ layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 architecture = [100, n_pca]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID"]
 
-pre_train = True
+architecture = [128, 64, n_pca]
+layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
+
+pre_train = False
 train = True
 cost_fct = 'cross-entropy'
 corruption = patches#[0., 0.3]

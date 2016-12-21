@@ -376,7 +376,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# under the constraint of regularisation and sparsity given by the user 
 		J = lambda x: self.cost(x, indices, weights_shape, biases_shape,
 			regularisation, sparsity, beta, data, cost_fct=cost_fct)
-		
+
 		if iterations >= 0:
 			options_ = {'maxiter': iterations, 'disp': verbose}
 			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
@@ -461,10 +461,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 						sparsity_cost += beta * np.sum(utils.KL_divergence(rho, rho_hat))
 	
 					delta = self.layers[jj+1].weights.dot(delta) + beta * sparsity_delta
-					
+
 				if self.layers[jj].hidden_type == 'SIGMOID':
 					delta *= utils.sigmoid_prime(self.layers[jj].activation.T)
-				if self.layers[jj].hidden_type == 'RELU':
+				elif self.layers[jj].hidden_type == 'RELU':
 					delta *= utils.relu_prime(self.layers[jj].activation.T)
 				elif self.layers[jj].hidden_type == 'LINEAR':
 					pass # Nothing more to do
@@ -521,7 +521,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			# Computes the cross-entropy
 			cost = - np.sum(data * np.log(h) + (1. - data) * np.log(1. - h), axis=0) 
 			cost = np.mean(cost)
-		elif cost_fct == 'X_rmse_params': 
+		else: 
 			raise NotImplemented()
 		if log_cost:
 			self.train_history.append(cost)

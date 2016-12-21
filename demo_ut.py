@@ -12,23 +12,23 @@ patches = images[0:5000]#[0:50000]
 test = images[50000:]
 
 gd = pylae.autoencoder.AutoEncoder(network_name, layer_type="gd")
-architecture = [1024, 512, 16]
-n_pca=16
+architecture = [256, 128, 8]
+n_pca=8
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]#, "SIGMOID"]#, "SIGMOID"]
 
 
-architecture = [50, 16]
-layers_type = ["SIGMOID", "SIGMOID", "SIGMOID"]
+#architecture = [50, 16]
+#layers_type = ["SIGMOID", "SIGMOID", "SIGMOID"]
 
 #architecture = [2000, 2000, 2000, n_pca]
 #layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 
-pre_train = False
+pre_train = True
 train = True
-cost_fct = 'cross-entropy'
+cost_fct = 'L2'
 if pre_train:
-	gd.pre_train(patches, architecture, layers_type, learn_rate={'SIGMOID':0.1, 'LINEAR':0.05/10.}, 
-				initialmomentum=0.5,finalmomentum=0.9, iterations=1000, mini_batch=100, regularisation=0.0087)
+	gd.pre_train(patches, architecture, layers_type, learn_rate={'SIGMOID':0.001, 'LINEAR':0.0005}, 
+				initialmomentum=0.5,finalmomentum=0.9, iterations=1000, mini_batch=250, regularisation=0.)
 	utils.writepickle(gd.rbms, "%s/gd/rbms.pkl" % network_name)
 else:
 	rbms = utils.readpickle("%s/gd/rbms.pkl" % network_name)
@@ -37,7 +37,7 @@ else:
 
 if train:
 	
-	gd.fine_tune(patches, iterations=1000, regularisation=0.000, sparsity=0.0, beta=0., cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
+	gd.fine_tune(patches, iterations=1000, regularisation=0., sparsity=0.0, beta=0., cost_fct=cost_fct)#regularisation=0.000, sparsity=0.05, beta=3.)
 	#gd.asgd(patches, iterations=5000,minibatch=5000)
 	#gd.sgd(patches, iterations=1000, learning_rate=0.02, initial_momentum=0.5, final_momentum=0.9, annealing=2000)
 	gd.save()
