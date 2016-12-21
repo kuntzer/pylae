@@ -73,18 +73,6 @@ def compute_rmsd(model, truth):
 	rmsd = np.sqrt(np.mean((model-truth)*(model-truth),axis=1))
 	return rmsd
 
-def compute_pca(data, n_components=None):
-	"""
-	Get the PCA decomposition according to:
-	http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
-	"""
-	from sklearn.decomposition import PCA
-	
-	pca = PCA(n_components=n_components, whiten=True)
-	pca.fit(data)
-	
-	return pca
-
 def mad(nparray):
 	"""
 	The Median Absolute Deviation
@@ -171,8 +159,8 @@ def KL_prime(x, y):
 	y = np.clip(y, 1e-6, 0.99999)
 	return -x/y + (1. - x) / (1. - y)
 
-def cross_entropy(target, actual):
-	cost = - np.sum(target * np.log(actual) + (1. - target) * np.log(1. - actual), axis=1) 
+def cross_entropy(target, preds):
+	cost = - np.sum(target * np.log(preds) + (1. - target) * np.log(1. - preds), axis=1) 
 	cost = np.mean(cost)
 	return cost
 

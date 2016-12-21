@@ -305,7 +305,7 @@ class GenericAutoEncoder():
 		n = np.ceil(np.sqrt(col))
 		m = np.ceil(col / n)
 	
-		image = np.ones(shape=(buf + m * (sz + buf), buf + n * (sz + buf)))
+		image = np.ones(shape=(int(buf + m * (sz + buf)), int(buf + n * (sz + buf))))
 	
 		if not opt_graycolor:
 			image *= 0.1
