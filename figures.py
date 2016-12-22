@@ -1,12 +1,14 @@
 ''' 
 AIM:	Provide several specific functions to save beautiful figures
-REMARKS: in general fancy means latex interpreter (font is serif, Palatino) and generates *.eps and *.pdf
 '''
+
+import os 
+import subprocess
+from matplotlib import rc
+
 ###################################################################################################
 
 def savefig(fname,fig,fancy=False, dpi=300, transparent=True):
-	import os
-	import subprocess
 
 	fig.savefig(fname+'.png',dpi=dpi)
 
@@ -16,12 +18,14 @@ def savefig(fname,fig,fancy=False, dpi=300, transparent=True):
 		command = 'pdfcrop %s.pdf' % fname
 		subprocess.check_output(command, shell=True)
 		os.system('mv '+fname+'-crop.pdf '+fname+'.pdf')
-	
 
-def set_fancy(font='Palatino'):
+	
+def set_fancy(font='Computer Modern', txtsize=16):
 	"""
 	:param font: which latex font to use. Have a look here http://www.tug.dk/FontCatalogue/
+	:param txtsize: the text size
 	"""
-	from matplotlib import rc
-	rc('font',**{'family':'serif','serif':[font],'size':16})
+	
+	rc('font',**{'size':txtsize})
+	rc('font', **{'family': 'serif', 'serif': [font]})
 	rc('text', usetex=True)

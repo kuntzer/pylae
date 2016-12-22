@@ -1,7 +1,8 @@
 import numpy as np
-import layer
 import scipy.optimize
-import copy
+
+import layer
+import processing
 import utils as u
 
 class Layer(layer.AE_layer):
@@ -42,7 +43,7 @@ class Layer(layer.AE_layer):
 
 		# Forward passes
 		if not self.corruption is None:
-			cdata = self._corrupt(data).T
+			cdata = processing.corrupt(self, data, self.corruption).T
 		else:
 			cdata = data.T
 			
@@ -79,43 +80,7 @@ class Layer(layer.AE_layer):
 		
 		# Returns the gradient as a vector.
 		return cost, grad
-	
-	def _corrupt(self, data):
-		
-		if type(self.corruption) == float:
-			cdata = np.random.binomial(size=data.shape, n=1, p=1.-self.corruption) * data
-		elif np.shape(np.asarray(self.corruption).T) == np.shape(data):
-			cdata = self.corruption.T
-		else:
-			#print np.amin(data), np.amax(data), np.mean(data), np.std(data)
-			if self.data_std is not None and self.data_norm is not None:
-				scales = np.random.uniform(low=self.corruption[0], high=self.corruption[1], size=data.shape[1])
-				
-				data = u.unnormalise(data, self.data_norm[0], self.data_norm[1])
-				data = u.unstandardize(data, self.data_std[0], self.data_std[1])
-				
-				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales]
-				noise_maps = np.asarray(noise_maps)
-				
-				cdata = data + noise_maps.T
-				
-				cdata, _, _ = u.standardize(cdata, self.data_std[0], self.data_std[1])
-				cdata, _, _ = u.normalise(cdata, self.data_norm[0], self.data_norm[1])
-				
-				# Just making sure we're not out of bounds:
-				min_thr = 1e-6
-				max_thr = 0.99999
-				
-				#print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
-				cdata[cdata < min_thr] = min_thr
-				cdata[cdata > max_thr] = max_thr
-				
-				#print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
-			else:
-				raise RuntimeError("Can't normalise the data. You must provide the normalisation and standardisation values. Giving up.")
-		#print np.amin(data), np.amax(data)
-		#print np.amin(cdata), np.amax(cdata)
-		return cdata
+
 	
 	def _roll(self, weights, visible_biases, hidden_biases):
 		return np.concatenate([weights.ravel(), visible_biases, hidden_biases])

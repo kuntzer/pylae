@@ -1,9 +1,11 @@
 import numpy as np
-import utils as u
 import copy
 import os
-import classae
 import scipy.optimize
+
+import utils as u
+import classae
+import processing
 
 class AutoEncoder(classae.GenericAutoEncoder):
 	
@@ -55,7 +57,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		self.set_autoencoder(layers)
 		print 'Pre-training complete.'
 		
-	def fine_tune(self, data, iterations=400, regularisation = 0.003, sparsity=0.1, beta=3., dropout=None,
+	def fine_tune(self, data, iterations=400, regularisation = 0.0, sparsity=0., beta=0., dropout=None,
 					method='L-BFGS-B', verbose=True, return_info=False, corruption=None, cost_fct='L2'):
 
 		# TODO:
@@ -107,41 +109,6 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# If the user requests the informations about the minimisation...
 		if return_info: return result
 	
-	def _corrupt(self, data, corruption):
-		
-		if type(corruption) == float:
-			cdata = np.random.binomial(size=data.shape, n=1, p=1.-corruption) * data
-		elif np.shape(np.asarray(corruption).T) == np.shape(data):
-			cdata = corruption.T
-		else:
-			if self.layers[0].data_std is not None and self.layers[0].data_norm is not None:
-				scales = np.random.uniform(low=corruption[0], high=corruption[1], size=data.shape[1])
-				
-				data = u.unnormalise(data, self.layers[0].data_norm[0], self.layers[0].data_norm[1])
-				data = u.unstandardize(data, self.layers[0].data_std[0], self.layers[0].data_std[1])
-				
-				p = np.random.binomial
-				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales] #* p(1, 0.5) 
-				noise_maps = np.asarray(noise_maps)
-				cdata = data + noise_maps.T
-				
-				cdata, _, _ = u.standardize(cdata, self.layers[0].data_std[0], self.layers[0].data_std[1])
-				cdata, _, _ = u.normalise(cdata, self.layers[0].data_norm[0], self.layers[0].data_norm[1])
-				
-				# Just making sure we're not out of bounds:
-				min_thr = 1e-6
-				max_thr = 0.99999
-				
-				#if ((cdata < min_thr).sum() > 0 or (cdata > max_thr).sum() > 0) and False:
-				#	print np.amin(data), np.amax(data), np.mean(data), np.std(data)
-				#	print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
-				#	print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
-				#	print 
-				cdata[cdata < min_thr] = min_thr
-				cdata[cdata > max_thr] = max_thr
-				
-		return cdata
-	
 	def cost(self, theta, indices, weights_shape, biases_shape, lambda_, sparsity, beta,\
 			 data, corruption, cost_fct, dropout, log_cost=True):
 
@@ -164,7 +131,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# Forward pass
 			
 		if corruption is not None:
-			cdata = self._corrupt(data, corruption)
+			cdata = processing.corrupt(self, data, corruption)
 		else:
 			cdata = data
 		ch = self.feedforward(cdata.T, dropout=dropout).T

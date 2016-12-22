@@ -27,40 +27,6 @@ def writepickle(obj, filepath, protocol = -1):
 	pickle.dump(obj, pkl_file, protocol)
 	pkl_file.close()
 	print "Wrote pickle to %s" % filepath
-	
-def normalise(arr, low=None, high=None):
-	"""
-	Normalise between 0 and 1 the data, see `func:unnormalise` for the inverse function
-	
-	:param arr: the data to normalise
-	:param low: lowest value of the array, if `None`, computed on `arr`
-	:param high: highest value of the array, if `None`, computed on `arr`
-	
-	:returns: normed array, lowest value, highest value
-	"""
-	if low is None:
-		low = np.amin(arr)
-		
-	if high is None:
-		high = np.amax(arr)
-	
-	normed_data = (arr - low) / (high - low)
-	return normed_data, low, high
-
-def unnormalise(arr, low, high):
-	return arr * (high - low) + low
-
-def standardize(data, mean=None, std=None):
-	if std is None:
-		std = np.std(data)
-	if mean is None:
-		mean = np.mean(data)
-		
-	return (data - mean) / std, mean, std
-
-def unstandardize(data, mean, std):
-	
-	return data * std + mean
 
 def compute_rmsd(model, truth):
 	"""

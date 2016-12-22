@@ -32,7 +32,7 @@ class GenericAutoEncoder():
 			if (a[0].startswith('__') and a[0].endswith('__')): continue
 			print a[0], "=", a[1]
 			
-	def clear_mem(self):
+	def _clear_memory(self):
 		self.rbms = None
 			
 		for jj in range(len(self.layers)):
@@ -131,7 +131,7 @@ class GenericAutoEncoder():
 		self.is_pretrained = True
 		self.set_autoencoder(rbms)
 		
-	def save_rbms(self, filepath=None, clear_mem=True):
+	def save_rbms(self, filepath=None, clear_memory=True):
 		"""
 		Saves the pre-trained rbms to a pickle file.
 		
@@ -140,8 +140,8 @@ class GenericAutoEncoder():
 		if filepath is None:
 			filepath = self.filepath
 			
-		if clear_mem:
-			self.clear_mem()
+		if clear_memory:
+			self._clear_memory()
 		
 		utils.writepickle(self.rbms, os.path.join(filepath, 'rmbs.pkl'))
 		
@@ -223,12 +223,12 @@ class GenericAutoEncoder():
 
 		return w, b
 	
-	def save(self, filepath=None, clear_mem=True):
+	def save(self, filepath=None, clear_memory=True):
 		if filepath is None:
 			filepath = self.filepath
 			
-		if clear_mem:
-			self.clear_mem()
+		if clear_memory:
+			self._clear_memory()
 			
 		utils.writepickle(self, os.path.join(filepath, 'ae.pkl'))
 
@@ -237,110 +237,5 @@ class GenericAutoEncoder():
 		if filepath is None:
 			filepath = self.filepath
 		
-		self.load_rbms(filepath)
-		
 		self = utils.readpickle(os.path.join(filepath, 'ae.pkl'))
 		self.is_trained = True
-		
-	def visualise(self, layer):
-		import pylab as plt
-		if layer > self.mid or layer < 0: 
-			raise ValueError("Wrong layer number")
-		
-		W = self.layers[layer].weights
-		plt.figure()
-		plt.imshow(W, interpolation="nearest")
-		plt.show()
-		exit()
-		nin, nout = np.shape(W)
-		
-		snout = int(np.sqrt(nout))
-		
-		
-		x = 0
-		y = 0
-		for ii in range(nout):
-			"""print np.shape(np.sqrt(np.sum(W[ii]**2)))
-			print np.shape(np.sqrt(np.sum(W[:,ii]**2)))
-			
-			exit()"""
-			#print np.shape(W[:,ii])
-			#print np.shape(W[ii])
-
-			arr =  W[:,ii].T
-			img = arr / np.amax(arr) #/ np.sqrt(np.sum(W[ii]**2))
-			img = img.reshape([1,64])
-			plt.imshow(img)
-			plt.show()
-			exit()
-			
-			#print np.shape(img)
-			#exit()
-			f, axes = plt.subplots(snout, snout)#, sharex='col', sharey='row')
-			axes[x, y].imshow(img.reshape([np.sqrt(nin),np.sqrt(nin)]), interpolation="nearest", cmap=plt.get_cmap('gray'))
-			
-			x += 1
-			if x >= np.sqrt(nout):
-				x = 0
-				y += 1
-
-		plt.setp([[a.get_xticklabels() for a in b] for b in axes[:,]], visible=False)
-		plt.setp([[a.get_yticklabels() for a in b] for b in axes[:,]], visible=False)
-
-	def display_network(self, layer_number=0, show=True):
-		import pylab as plt
-		opt_normalize = True
-		opt_graycolor = True
-		
-		A = copy.copy(self.layers[layer_number].weights)
-		#print np.shape(A)
-
-		# Rescale
-		A = A - np.average(A)
-	
-		# Compute rows & cols
-		(row, col) = A.shape
-		sz = int(np.ceil(np.sqrt(row)))
-		buf = 1
-		n = np.ceil(np.sqrt(col))
-		m = np.ceil(col / n)
-	
-		image = np.ones(shape=(int(buf + m * (sz + buf)), int(buf + n * (sz + buf))))
-	
-		if not opt_graycolor:
-			image *= 0.1
-	
-		k = 0
-		for i in range(int(m)):
-			for j in range(int(n)):
-				if k >= col:
-					continue
-	
-				clim = np.max(np.abs(A[:, k]))
-	
-				if opt_normalize:
-					image[buf + i * (sz + buf):buf + i * (sz + buf) + sz, buf + j * (sz + buf):buf + j * (sz + buf) + sz] = \
-						A[:, k].reshape(sz, sz) / clim
-				else:
-					image[buf + i * (sz + buf):buf + i * (sz + buf) + sz, buf + j * (sz + buf):buf + j * (sz + buf) + sz] = \
-						A[:, k].reshape(sz, sz) / np.max(np.abs(A))
-				k += 1
-	
-		fig = plt.figure()
-		plt.imshow(image, interpolation="nearest", cmap=plt.get_cmap('gray'))
-		
-		#return fig
-		if show: plt.show()
-	
-	def display_train_history(self):
-		import pylab as plt
-		
-		plt.figure()
-		
-		for jj in range(self.mid):
-			plt.plot(self.layers[jj].train_history, label="Layer %d" % jj, lw=2)
-		
-		plt.plot(self.train_history, lw=2, label="Fine-tune")
-		plt.legend(loc='best')
-		
-		plt.show()

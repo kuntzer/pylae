@@ -1,9 +1,10 @@
 import numpy as np
-import layer
 import scipy.optimize
-import utils as u
 import pylab as plt
-import copy
+
+import layer
+import utils as u
+import processing
 
 class Layer(layer.AE_layer):
 	def __init__(self, hidden_nodes, visible_type, hidden_type, mini_batch, iterations, 
@@ -64,7 +65,7 @@ class Layer(layer.AE_layer):
 		"""
 		
 		if self.corruption is not None:
-			cdata = self._corrupt(data)
+			cdata = processing.corrupt(self, data, self.corruption)
 		else:
 			cdata = data
 
@@ -201,46 +202,6 @@ class Layer(layer.AE_layer):
 		weights = weights.reshape([self.visible_dims, self.hidden_nodes])
 		
 		return weights, visible_biases, hidden_biases
-	
-	def _corrupt(self, data):
-		
-		if type(self.corruption) == float:
-			cdata = np.random.binomial(size=data.shape, n=1, p=1.-self.corruption) * data
-		elif np.shape(np.asarray(self.corruption).T) == np.shape(data):
-			cdata = self.corruption.T
-		else:
-			
-			if self.data_std is not None and self.data_norm is not None:
-				scales = np.random.uniform(low=self.corruption[0], high=self.corruption[1], size=data.shape[1])
-				
-				data = u.unnormalise(data, self.data_norm[0], self.data_norm[1])
-				data = u.unstandardize(data, self.data_std[0], self.data_std[1])
-				
-				p = np.random.binomial
-				noise_maps = [np.random.normal(scale=sig, size=data.shape[0]) for sig in scales] # * p(1, 0.5)
-				noise_maps = np.asarray(noise_maps)
-				
-				cdata = data + noise_maps.T
-				
-				cdata, _, _ = u.standardize(cdata, self.data_std[0], self.data_std[1])
-				cdata, _, _ = u.normalise(cdata, self.data_norm[0], self.data_norm[1])
-				
-				# Just making sure we're not out of bounds:
-				min_thr = 1e-6
-				max_thr = 0.99999
-				
-				#if ((cdata < min_thr).sum() > 0 or (cdata > max_thr).sum() > 0) and False:
-				#	print np.amin(data), np.amax(data), np.mean(data), np.std(data)
-				#	print 'N/C:', (cdata < min_thr).sum(), (cdata > max_thr).sum()
-				cdata[cdata < min_thr] = min_thr
-				cdata[cdata > max_thr] = max_thr
-				
-				#print np.amin(cdata), np.amax(cdata), np.mean(cdata), np.std(cdata)
-			else:
-				raise RuntimeError("Can't normalise the data (%s, %s). You must provide the normalisation and standardisation values. Giving up." % (self.data_std, self.data_norm))
-		#print np.amin(data), np.amax(data)
-		#print np.amin(cdata), np.amax(cdata)
-		return cdata
 	
 	def train(self, data, data_std=[0.,1.], data_norm=[0., 1.], method='L-BFGS-B', verbose=True, return_info=False, weight=0.001, **kwargs):
 		# TODO: deal with minibatches!
