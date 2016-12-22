@@ -2,6 +2,7 @@ import pylab as plt
 from sklearn.decomposition import PCA
 import sklearn.metrics as metrics
 import numpy as np
+import os
 
 import pylae
 import utils_mnist
@@ -26,24 +27,23 @@ layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 cost_fct = 'cross-entropy'
 
 # Define what training we should do
-do_pre_train = True
+do_pre_train = False
 do_train = True
-iters = 20
+iters = 200
 
 if do_pre_train:
 	dA.pre_train(images_train, architecture, layers_type, iterations=iters, mini_batch=0, corruption=None)
-	pylae.utils.writepickle(dA.rbms, "%s/dA/layers.pkl" % dA.name)
+	dA.save()
 else:
-	rbms = pylae.utils.readpickle("%s/dA/layers.pkl" % dA.name)
-	dA.set_autoencoder(rbms)
-	dA.is_pretrained = True
+	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
+	print 'pre-AE loaded!'
 
 if do_train:
 	#dA = pylae.utils.readpickle("%s/dA/ae.pkl" % dA.name)
 	dA.fine_tune(images_train, iterations=iters, regularisation=0., sparsity=0.0, beta=0., corruption=None, cost_fct=cost_fct)
 	dA.save()
 else:
-	dA = pylae.utils.readpickle("%s/dA/ae.pkl" % dA.name)
+	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
 	print 'AE loaded!'
 
 pylae.plots.display_train_history(dA)

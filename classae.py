@@ -131,34 +131,6 @@ class GenericAutoEncoder():
 		self.is_pretrained = True
 		self.set_autoencoder(rbms)
 		
-	def save_rbms(self, filepath=None, clear_memory=True):
-		"""
-		Saves the pre-trained rbms to a pickle file.
-		
-		:param filepath: the path of the file, default path is defined in the init / rmbs.pkl
-		"""
-		if filepath is None:
-			filepath = self.filepath
-			
-		if clear_memory:
-			self._clear_memory()
-		
-		utils.writepickle(self.rbms, os.path.join(filepath, 'rmbs.pkl'))
-		
-	def load_rbms(self, filepath=None):
-		"""
-		Reads the pre-trained rbms from a pickle file.
-		
-		:param filepath: the path of the file, default path is defined in the init / rmbs.pkl
-		"""
-		
-		if filepath is None:
-			filepath = self.filepath
-		
-		rbms = utils.readpickle(os.path.join(filepath, 'rmbs.pkl'))
-		self.set_autencoder(rbms)
-		self.is_pretrained = True
-		
 	def encode(self, data):
 		"""
 		Encodes the data using the encoder
@@ -231,11 +203,3 @@ class GenericAutoEncoder():
 			self._clear_memory()
 			
 		utils.writepickle(self, os.path.join(filepath, 'ae.pkl'))
-
-	def load(self, filepath=None):
-		
-		if filepath is None:
-			filepath = self.filepath
-		
-		self = utils.readpickle(os.path.join(filepath, 'ae.pkl'))
-		self.is_trained = True
