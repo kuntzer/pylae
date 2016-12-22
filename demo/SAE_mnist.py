@@ -31,6 +31,7 @@ do_pre_train = False
 do_train = True
 iters = 200
 
+# Unsupervised pre-training
 if do_pre_train:
 	dA.pre_train(images_train, architecture, layers_type, iterations=iters, mini_batch=0, corruption=None)
 	dA.save()
@@ -38,8 +39,8 @@ else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
 	print 'pre-AE loaded!'
 
+# Supervised training
 if do_train:
-	#dA = pylae.utils.readpickle("%s/dA/ae.pkl" % dA.name)
 	dA.fine_tune(images_train, iterations=iters, regularisation=0., sparsity=0.0, beta=0., corruption=None, cost_fct=cost_fct)
 	dA.save()
 else:
@@ -47,7 +48,7 @@ else:
 	print 'AE loaded!'
 
 pylae.plots.display_train_history(dA)
-pylae.plots.display_network(dA,0)
+pylae.plots.display_network(dA, 0)
 
 # Let's encode and decode the test image to see the result:
 sae_enc = dA.encode(images_test)

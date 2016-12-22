@@ -64,13 +64,12 @@ class GenericAutoEncoder():
 		
 	def feedforward(self, data, dropout=None):
 		"""
-		Encodes and decodes the data using the full autoencoder
+		Encodes and decodes the data using the full auto-encoder
 		:param data: The data in the same format than the training data
 		
 		:returns: the fed-forward data
 		"""
 		for layer in self.layers :
-			#print layer.hidden_nodes, '-'*30
 			data = layer.feedforward_memory(data, dropout=dropout)
 
 		return data
@@ -83,53 +82,10 @@ class GenericAutoEncoder():
 		
 		:returns: the fed-forward data
 		"""
-		for layer in self.layers[:j+1] : # TODO: +1, really?
+		for layer in self.layers[:j+1] :
 			data = layer.feedforward(data, dropout=dropout)
 
 		return data
-	
-	def pre_train(self, data, architecture, layers_type, learn_rate={'SIGMOID':3.4e-3, 'LINEAR':3.4e-4},
-			initialmomentum=0.53, finalmomentum=0.93, iterations=2000, mini_batch=100,
-			regularisation=0.001, max_epoch_without_improvement=30, early_stop=True):
-
-		"""
-		
-		"""
-		if self.rbm_type == "gd" :
-			import RBM_gd as RBM
-		elif self.rbm_type == "cd1" :
-			import RBM_cd1 as RBM
-		else:
-			raise RuntimeError("RBM_gd training type %s unknown." % self.rbm_type)
-		
-		
-		assert len(architecture) + 1 == len(layers_type)
-		
-		# Archiving the configuration
-		rbms_config = {'architecture':architecture, 'layers_type':layers_type, 'learn_rate':learn_rate,
-				'initialmomentum':initialmomentum, 'finalmomentum':finalmomentum,
-				'regularisation':regularisation, 'iterations':iterations, 
-				'max_epoch_without_improvement':max_epoch_without_improvement,
-				'early_stop':early_stop}
-		self.rbms_config = rbms_config
-		
-		rbms = []
-		for ii in range(len(architecture)):
-			print "Pre-training layer %d..." % (ii + 1)
-			learnr = learn_rate[layers_type[ii+1]]
-
-			layer = RBM.RBM(architecture[ii], layers_type[ii], layers_type[ii+1], mini_batch, 
-						iterations, max_epoch_without_improvement=max_epoch_without_improvement, 
-						early_stop=early_stop)
-			layer.train(data, learn_rate_w=learnr, learn_rate_visb=learnr, 
-					learn_rate_hidb=learnr, initialmomentum=initialmomentum, 
-					finalmomentum=finalmomentum, weightcost=regularisation)
-			data = layer.feedforward(data)
-	
-			rbms.append(layer)
-		
-		self.is_pretrained = True
-		self.set_autoencoder(rbms)
 		
 	def encode(self, data):
 		"""
