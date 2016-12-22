@@ -219,7 +219,7 @@ class GenericAutoEncoder():
 		
 	def _unroll(self, theta, layer, indices, weights_shape, biases_shape):
 		w = theta[indices[layer]: indices[layer+1]].reshape(weights_shape[layer][0], weights_shape[layer][1]).transpose() 
-		b = theta[indices[layer + 2. * self.mid]: indices[layer + 1 + 2. * self.mid]].reshape(biases_shape[layer])
+		b = theta[indices[layer + 2 * self.mid]: indices[layer + 1 + 2 * self.mid]].reshape(biases_shape[layer])
 
 		return w, b
 	

@@ -4,13 +4,13 @@ import sklearn.metrics as metrics
 import numpy as np
 
 import pylae
-
+import utils_mnist
 
 # Loading the data and pre-processing
-N_train = 5000
-N_test = 15000
+N_train = 50
+N_test = 150
 
-images = pylae.utils_mnist.load_MNIST_images('mnist-data/train-images.idx3-ubyte')
+images = utils_mnist.load_MNIST_images('mnist-data/train-images.idx3-ubyte')
 images = images.T
 ids_train = range(N_train)
 ids_test = range(N_train, N_train+N_test)
@@ -19,16 +19,16 @@ images_train = images[ids_train]
 images_test = images[ids_test]
 
 # Preparing the SAE
-dA = pylae.dA.AutoEncoder("sae_mnist")
+dA = pylae.dA.AutoEncoder("sae_mnist_fasttest")
 
 architecture = [128, 64, 16]
 layers_type = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 cost_fct = 'cross-entropy'
 
 # Define what training we should do
-do_pre_train = False
-do_train = False
-iters = 2000
+do_pre_train = True
+do_train = True
+iters = 20
 
 if do_pre_train:
 	dA.pre_train(images_train, architecture, layers_type, iterations=iters, mini_batch=0, corruption=None)
@@ -39,7 +39,7 @@ else:
 	dA.is_pretrained = True
 
 if do_train:
-	dA = pylae.utils.readpickle("%s/dA/ae.pkl" % dA.name)
+	#dA = pylae.utils.readpickle("%s/dA/ae.pkl" % dA.name)
 	dA.fine_tune(images_train, iterations=iters, regularisation=0., sparsity=0.0, beta=0., corruption=None, cost_fct=cost_fct)
 	dA.save()
 else:
@@ -58,7 +58,7 @@ pca = PCA(n_components=architecture[-1], whiten=True)
 pca.fit(images_train)
 pca_enc = pca.transform(images_test)
 images_pca = pca.inverse_transform(pca_enc)
-images_pca, _,_ = pylae.utils.normalise(images_pca) # PCA IS NOT NORMALISED!
+images_pca, _,_ = pylae.processing.normalise(images_pca) # PCA IS NOT NORMALISED!
 
 # To avoid numerical issues...
 images_pca += 1e-10
