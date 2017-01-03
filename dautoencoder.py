@@ -9,19 +9,6 @@ import processing
 
 class AutoEncoder(classae.GenericAutoEncoder):
 	
-	def __init__(self, name='ae', layer_type="dA", directory='', verbose=False, mkdir=True):
-		self.name = name
-		self.is_pretrained = False
-		self.is_trained = False
-		self.verbose = verbose
-		self.layer_type = layer_type
-		
-		self.filepath = os.path.join(directory, name, layer_type)
-		if not os.path.isdir(self.filepath) and mkdir:
-			os.makedirs(self.filepath)
-		self.directory = directory
-		self.train_history = []
-	
 	def pre_train(self, data, architecture, layers_type, mini_batch, iterations, corruption=None, **kwargs):
 
 		if self.layer_type == "dA" :

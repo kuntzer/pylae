@@ -8,8 +8,8 @@ import pylae
 import utils_mnist
 
 # Loading the data and pre-processing
-N_train = 50
-N_test = 150
+N_train = 5000
+N_test = 1500
 
 images = utils_mnist.load_MNIST_images('mnist-data/train-images.idx3-ubyte')
 images = images.T
@@ -28,8 +28,8 @@ cost_fct = 'cross-entropy'
 
 # Define what training we should do
 do_pre_train = False
-do_train = True
-iters = 200
+do_train = False
+iters = 5000
 
 # Unsupervised pre-training
 if do_pre_train:
@@ -51,8 +51,7 @@ pylae.plots.display_train_history(dA)
 pylae.plots.display_network(dA, 0)
 
 # Let's encode and decode the test image to see the result:
-sae_enc = dA.encode(images_test)
-images_sae = dA.decode(sae_enc)
+images_sae = dA.decode(dA.encode(images_test))
 
 # Compute PCA model for the same training data
 pca = PCA(n_components=architecture[-1], whiten=True)

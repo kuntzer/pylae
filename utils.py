@@ -27,6 +27,7 @@ def writepickle(obj, filepath, protocol = -1):
 	pickle.dump(obj, pkl_file, protocol)
 	pkl_file.close()
 	print "Wrote pickle to %s" % filepath
+	
 
 def compute_rmsd(model, truth):
 	"""

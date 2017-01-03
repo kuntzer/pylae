@@ -5,15 +5,15 @@ import os
 
 class GenericAutoEncoder():
 	
-	def __init__(self, name='ae', rbm_type="gd", directory='', verbose=False, mkdir=True):
+	def __init__(self, name='ae', layer_type="dA", directory='', verbose=False):
 		self.name = name
 		self.is_pretrained = False
 		self.is_trained = False
 		self.verbose = verbose
-		self.rbm_type = rbm_type
+		self.layer_type = layer_type
 		
-		self.filepath = os.path.join(directory, name, rbm_type)
-		if not os.path.isdir(self.filepath) and mkdir:
+		self.filepath = os.path.join(directory, name, layer_type)
+		if not os.path.isdir(self.filepath):
 			os.makedirs(self.filepath)
 		self.directory = directory
 		self.train_history = []

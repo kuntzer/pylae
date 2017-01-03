@@ -18,14 +18,21 @@ class AE_layer():
 		self.visible_type = visible_type
 		self.hidden_type = hidden_type
 		
+		self.visible_act_fct = eval("act.{}".format(self.visible_type.lower()))
+		self.hidden_act_fct = eval("act.{}".format(self.hidden_type.lower()))
+		self.visible_act_fct_prime = eval("act.{}_prime".format(self.visible_type.lower()))
+		self.hidden_act_fct_prime = eval("act.{}_prime".format(self.hidden_type.lower()))
+	
 	def compute_layer(self, m_input):
 		return np.dot(m_input, self.weights) + self.hidden_biases
 	
-	def compute_visible(self, m_input):
+	def compute_inverse(self, m_input):
 		return np.dot(m_input, self.weights.T) + self.visible_biases
 	
 	def activate(self, activation):
 		
+		m_output = self.visible_act_fct(activation)
+		"""
 		if(self.visible_type == "SIGMOID"):
 			m_output = utils.sigmoid(activation)
 		elif(self.visible_type == "RELU"):
@@ -36,9 +43,9 @@ class AE_layer():
 			m_output = activation
 		else:
 			raise NotImplemented("Unrecogonised hidden type")
-	
+		"""
 		return m_output
-	
+	"""
 	def prime_activate(self, activation):
 		if(self.hidden_type == "SIGMOID"):
 			prime = utils.sigmoid_prime(activation)
@@ -52,11 +59,10 @@ class AE_layer():
 			raise NotImplemented("Unrecogonised hidden type")
 			
 		return prime
-	
+	"""
 	def full_feedforward(self, data, return_activation=False, dropout=None, return_hidden=False):
 		hidden_data = self.feedforward_memory(data, dropout=dropout)
-		activation = self.compute_visible(hidden_data)
-		
+		activation = self.compute_inverse(hidden_data)
 		m_output = self.activate(activation)
 			
 		#if dropout is not None:

@@ -11,10 +11,10 @@ def sigmoid(x):
 	return 1.0 / (1.0 + np.exp(-x))
 
 def sigmoid_prime(x):
-	return sigmoid(x) * (1. - sigmoid(x))
+	return sigmoid(x) * (1.0 - sigmoid(x))
 
 def sigmoideven(x):
-	return 2.0 * sigmoid(x) - 1
+	return 2.0 * sigmoid(x) - 1.0
 
 def sigmoideven_prime(x):
 	return 2.0 * sigmoid_prime.prime(x)

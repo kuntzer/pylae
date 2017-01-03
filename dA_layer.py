@@ -1,9 +1,9 @@
 import numpy as np
 import scipy.optimize
 
+import act
 import layer
 import processing
-import utils as u
 
 class Layer(layer.AE_layer):
 	def __init__(self, hidden_nodes, visible_type, hidden_type, mini_batch, iterations, 
@@ -28,6 +28,10 @@ class Layer(layer.AE_layer):
 		self.train_history = []
 		self.corruption = corruption
 		
+		self.visible_act_fct = eval("act.{}".format(self.visible_type.lower()))
+		self.hidden_act_fct = eval("act.{}".format(self.hidden_type.lower()))
+		self.visible_act_fct_prime = eval("act.{}_prime".format(self.visible_type.lower()))
+		self.hidden_act_fct_prime = eval("act.{}_prime".format(self.hidden_type.lower()))
 	
 	def cost(self, theta, data, log_cost=False, **params):
 
@@ -52,7 +56,7 @@ class Layer(layer.AE_layer):
 		#	hn = self#self.feedforward(data.T)
 		#else:
 		#	pass
-		hd = self.feedforward(data.T)
+		#hd = self.feedforward(data.T)
 		hn = self.output
 			
 		# Compute the gradients:
@@ -60,12 +64,12 @@ class Layer(layer.AE_layer):
 		
 		# First: bottom to top
 		dEda = h - data
-		dEdvb = np.mean(dEda, axis=1)
+		dEdvb = np.median(dEda, axis=1)
 		#Second: top to bottom
 		
 		
 		dEda = (self.weights.T).dot(dEda) * (hn * (1. - hn)).T
-		dEdhb = np.mean(dEda, axis=1)
+		dEdhb = np.median(dEda, axis=1)
 		
 		dEdw = dEda.dot(data.T) / m + lambda_ * self.weights.T / m
 		dEdw = dEdw.T
@@ -73,7 +77,7 @@ class Layer(layer.AE_layer):
 
 		# Computes the cross-entropy
 		cost = - np.sum(data * np.log(h) + (1. - data) * np.log(1. - h), axis=0) 
-		cost = np.mean(cost)
+		cost = np.median(cost)
 				
 		if log_cost:
 			self.train_history.append(cost)
@@ -89,7 +93,6 @@ class Layer(layer.AE_layer):
 		
 		nw = np.size(self.weights)
 		nvb = np.size(self.visible_biases)
-		#nhb = np.size(self.hidden_biases)
 		
 		weights = theta[:nw]
 		visible_biases = theta[nw:nw+nvb]
@@ -125,7 +128,12 @@ class Layer(layer.AE_layer):
 		
 		self.visible_biases = np.zeros(numdims)
 		self.hidden_biases = np.zeros(self.hidden_nodes)
-		
+		"""print np.shape(self.visible_biases)
+		print np.shape(self.hidden_biases); 
+		print np.shape(self.weights)
+		print np.shape(data)
+		print np.shape(np.dot(data,self.weights))
+		exit()"""
 		theta = self._roll(self.weights, self.visible_biases, self.hidden_biases)
 	
 		data = data.T
