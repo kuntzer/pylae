@@ -1,17 +1,16 @@
 import numpy as np
 import scipy.optimize
 
-import act
 import layer
-import processing
+from .. import processing
+from .. import act 
 
 class Layer(layer.AE_layer):
-	def __init__(self, hidden_nodes, visible_type, hidden_type, mini_batch, iterations, 
+	def __init__(self, hidden_nodes, activation, mini_batch, iterations, 
 				corruption, max_epoch_without_improvement=50, early_stop=True):
 		"""
 		:param hidden_nodes: Number of neurons in layer
-		:param visible_type: `SIGMOID` or `LINEAR`, linear for in-/outputs
-		:param hidden_type: `SIGMOID` or `LINEAR`, sigmoid for hidden layers
+		:param activation: Activation function for the layer
 		:param mini_batch: number of training sample
 		:param max_epoch_without_improvement: how many iterations should be done after best performance is 
 			reached to probe the rmsd behaviour. 
@@ -19,8 +18,7 @@ class Layer(layer.AE_layer):
 			makes probes the `max_epoch_without_improvement` following iterations before stopping.
 		"""
 		self.hidden_nodes = hidden_nodes
-		self.visible_type = visible_type
-		self.hidden_type = hidden_type
+		self.activation_name = activation
 		self.mini_batch = mini_batch
 		self.iterations = iterations
 		self.max_epoch_without_improvement = max_epoch_without_improvement
@@ -28,10 +26,7 @@ class Layer(layer.AE_layer):
 		self.train_history = []
 		self.corruption = corruption
 		
-		self.visible_act_fct = eval("act.{}".format(self.visible_type.lower()))
-		self.hidden_act_fct = eval("act.{}".format(self.hidden_type.lower()))
-		self.visible_act_fct_prime = eval("act.{}_prime".format(self.visible_type.lower()))
-		self.hidden_act_fct_prime = eval("act.{}_prime".format(self.hidden_type.lower()))
+		self.activation_fct = eval("act.{}".format(self.activation_name.lower()))
 	
 	def cost(self, theta, data, log_cost=False, **params):
 
@@ -43,7 +38,7 @@ class Layer(layer.AE_layer):
 		m = data.shape[1]
 		
 		# Unroll theta
-		self.weights, self.visible_biases, self.hidden_biases = self._unroll(theta)
+		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
 
 		# Forward passes
 		if not self.corruption is None:
@@ -64,12 +59,12 @@ class Layer(layer.AE_layer):
 		
 		# First: bottom to top
 		dEda = h - data
-		dEdvb = np.median(dEda, axis=1)
+		dEdvb = np.mean(dEda, axis=1)
 		#Second: top to bottom
 		
 		
 		dEda = (self.weights.T).dot(dEda) * (hn * (1. - hn)).T
-		dEdhb = np.median(dEda, axis=1)
+		dEdhb = np.mean(dEda, axis=1)
 		
 		dEdw = dEda.dot(data.T) / m + lambda_ * self.weights.T / m
 		dEdw = dEdw.T
@@ -77,30 +72,14 @@ class Layer(layer.AE_layer):
 
 		# Computes the cross-entropy
 		cost = - np.sum(data * np.log(h) + (1. - data) * np.log(1. - h), axis=0) 
-		cost = np.median(cost)
+		cost = np.mean(cost)
 				
 		if log_cost:
 			self.train_history.append(cost)
 		
 		# Returns the gradient as a vector.
 		return cost, grad
-
 	
-	def _roll(self, weights, visible_biases, hidden_biases):
-		return np.concatenate([weights.ravel(), visible_biases, hidden_biases])
-	
-	def _unroll(self, theta):
-		
-		nw = np.size(self.weights)
-		nvb = np.size(self.visible_biases)
-		
-		weights = theta[:nw]
-		visible_biases = theta[nw:nw+nvb]
-		hidden_biases = theta[nw+nvb:]
-		
-		weights = weights.reshape([self.visible_dims, self.hidden_nodes])
-		
-		return weights, visible_biases, hidden_biases
 	
 	def train(self, data, data_std=[0.,1.], data_norm=[0., 1.], method='L-BFGS-B', verbose=True, return_info=False, weight=0.1, **kwargs):
 		# TODO: deal with minibatches!
@@ -126,15 +105,15 @@ class Layer(layer.AE_layer):
 		
 		#print 'WEIGHTS:', np.amin(self.weights), np.amax(self.weights), np.mean(self.weights), np.std(self.weights)
 		
-		self.visible_biases = np.zeros(numdims)
-		self.hidden_biases = np.zeros(self.hidden_nodes)
-		"""print np.shape(self.visible_biases)
-		print np.shape(self.hidden_biases); 
+		self.inverse_biases = np.zeros(numdims)
+		self.biases = np.zeros(self.hidden_nodes)
+		"""print np.shape(self.inverse_biases)
+		print np.shape(self.biases); 
 		print np.shape(self.weights)
 		print np.shape(data)
 		print np.shape(np.dot(data,self.weights))
 		exit()"""
-		theta = self._roll(self.weights, self.visible_biases, self.hidden_biases)
+		theta = self._roll(self.weights, self.inverse_biases, self.biases)
 	
 		data = data.T
 		
@@ -148,7 +127,7 @@ class Layer(layer.AE_layer):
 		
 		###########################################################################################
 		# Unroll the state vector and saves it to self.	
-		self.weights, self.visible_biases, self.hidden_biases = self._unroll(opt_theta)
+		self.weights, self.inverse_biases, self.biases = self._unroll(opt_theta)
 		
 		if verbose: print result
 				

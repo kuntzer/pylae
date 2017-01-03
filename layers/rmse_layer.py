@@ -70,7 +70,7 @@ class Layer(layer.AE_layer):
 			cdata = data
 
 		# Unroll theta
-		self.weights, self.visible_biases, self.hidden_biases = self._unroll(theta)
+		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
 
 		# Forward passes
 		ch, nactivation_last = self.full_feedforward(cdata.T, return_activation=True, dropout=dropout)
@@ -186,22 +186,22 @@ class Layer(layer.AE_layer):
 		# Returns the gradient as a vector.
 		return cost, grad
 	
-	def _roll(self, weights, visible_biases, hidden_biases):
-		return np.concatenate([weights.ravel(), visible_biases, hidden_biases])
+	def _roll(self, weights, inverse_biases, biases):
+		return np.concatenate([weights.ravel(), inverse_biases, biases])
 	
 	def _unroll(self, theta):
 		
 		nw = np.size(self.weights)
-		nvb = np.size(self.visible_biases)
-		#nhb = np.size(self.hidden_biases)
+		nvb = np.size(self.inverse_biases)
+		#nhb = np.size(self.biases)
 		
 		weights = theta[:nw]
-		visible_biases = theta[nw:nw+nvb]
-		hidden_biases = theta[nw+nvb:]
+		inverse_biases = theta[nw:nw+nvb]
+		biases = theta[nw+nvb:]
 		
 		weights = weights.reshape([self.visible_dims, self.hidden_nodes])
 		
-		return weights, visible_biases, hidden_biases
+		return weights, inverse_biases, biases
 	
 	def train(self, data, data_std=[0.,1.], data_norm=[0., 1.], method='L-BFGS-B', verbose=True, return_info=False, weight=0.001, **kwargs):
 		# TODO: deal with minibatches!
@@ -219,10 +219,10 @@ class Layer(layer.AE_layer):
 					high=np.sqrt(6. / (numdims + self.hidden_nodes)),
 					size=(numdims, self.hidden_nodes))
 		
-		self.visible_biases = np.zeros(numdims)
-		self.hidden_biases = np.zeros(self.hidden_nodes)
+		self.inverse_biases = np.zeros(numdims)
+		self.biases = np.zeros(self.hidden_nodes)
 		
-		theta = self._roll(self.weights, self.visible_biases, self.hidden_biases)
+		theta = self._roll(self.weights, self.inverse_biases, self.biases)
 	
 		data = data.T
 		
@@ -240,7 +240,7 @@ class Layer(layer.AE_layer):
 		
 		###########################################################################################
 		# Unroll the state vector and saves it to self.	
-		self.weights, self.visible_biases, self.hidden_biases = self._unroll(opt_theta)
+		self.weights, self.inverse_biases, self.biases = self._unroll(opt_theta)
 		
 		if verbose: print result
 				

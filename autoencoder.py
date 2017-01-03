@@ -111,7 +111,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					grad_bias = np.mean(delta, axis=0)# dJ/dB is error only, no regularisation for biases
 					
 				elif layer.hidden_type == "LINEAR":
-					grad_bias = np.mean(layer.output - layer.hidden_biases, axis=0)/N
+					grad_bias = np.mean(layer.output - layer.biases, axis=0)/N
 					
 					delta = delta
 				else :
@@ -138,7 +138,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					momentum_bias[jj] = momentum_rate*momentum_bias[jj] + grad_bias
 
 				layer.weights -= learn_rate*momentum[jj]
-				layer.hidden_biases -= learn_rate*momentum_bias[jj]
+				layer.biases -= learn_rate*momentum_bias[jj]
 
 			if best_rmsd is not None:	
 				rsmd_grad = (rmsd - best_rmsd) / best_rmsd
@@ -229,7 +229,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 				#print np.shape(delta), '<<<'
 
 				#print np.shape(layer.weights)
-				#print np.shape(layer.hidden_biases)
+				#print np.shape(layer.biases)
 				
 				#print np.shape(KL)
 				#print np.shape((1.0 - layer.output) * layer.output)
@@ -247,7 +247,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					grad_bias = np.mean(delta, axis=0)# dJ/dB is error only, no regularisation for biases
 				elif layer.hidden_type == "LINEAR":
 					#grad_bias = np.mean(delta, axis=0)
-					grad_bias = np.mean(layer.output - layer.hidden_biases, axis=0)/N
+					grad_bias = np.mean(layer.output - layer.biases, axis=0)/N
 					
 					
 					prim = 1
@@ -306,7 +306,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					momentum_bias[jj] = momentum_rate*momentum_bias[jj] + grad_bias
 
 				layer.weights -= learn_rate*momentum[jj]
-				layer.hidden_biases -= learn_rate*momentum_bias[jj]
+				layer.biases -= learn_rate*momentum_bias[jj]
 			#exit()	
 				#layer.
 			if best_rmsd is not None:	
@@ -366,7 +366,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		biases = []
 		for jj in range(self.mid * 2):
 			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].hidden_biases) 
+			biases.append(self.layers[jj].biases) 
 			
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
@@ -391,7 +391,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(opt_theta, jj, indices, weights_shape, biases_shape)
 			
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 		
 		if verbose: print result
 		
@@ -415,7 +415,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
 
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 	
 		# Number of training examples
 		m = data.shape[1]
@@ -556,7 +556,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		biases = []
 		for jj in range(self.mid * 2):
 			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].hidden_biases) 
+			biases.append(self.layers[jj].biases) 
 			
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
@@ -611,7 +611,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
 			
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 			
 		# We're done !
 		self.is_trained = True
@@ -632,7 +632,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		biases = []
 		for jj in range(self.mid * 2):
 			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].hidden_biases) 
+			biases.append(self.layers[jj].biases) 
 			
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
@@ -674,7 +674,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
 			
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 			
 		# We're done !
 		self.is_trained = True

@@ -9,17 +9,15 @@ import processing
 
 class AutoEncoder(classae.GenericAutoEncoder):
 	
-	def pre_train(self, data, architecture, layers_type, mini_batch, iterations, corruption=None, **kwargs):
+	def pre_train(self, data, architecture, layers_activations, mini_batch, iterations, corruption=None, **kwargs):
 
 		if self.layer_type == "dA" :
-			import dA_layer as network
+			import layers.dA_layer as network
 		elif self.layer_type == "rmse" :
-			import rmse_layer as network
+			import layers.rmse_layer as network
 		else:
 			raise RuntimeError("Layer/pre-training type %s unknown." % self.rbm_type)
 		
-		
-		assert len(architecture) + 1 == len(layers_type)
 		
 		layers = []
 		shape_previous_layer = np.shape(data)
@@ -30,7 +28,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			else:
 				corruption_lvl = corruption
 				
-			layer = network.Layer(architecture[ii], layers_type[ii], layers_type[ii+1], mini_batch, 
+			layer = network.Layer(architecture[ii], layers_activations[ii], mini_batch, 
 						iterations, corruption_lvl)
 			layer.train(data, **kwargs)
 			print 'continue with next level'
@@ -59,7 +57,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		biases = []
 		for jj in range(self.mid * 2):
 			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].hidden_biases) 
+			biases.append(self.layers[jj].biases) 
 			
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
@@ -86,7 +84,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(opt_theta, jj, indices, weights_shape, biases_shape)
 			
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 		
 		if verbose: print result
 		
@@ -110,7 +108,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
 
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 	
 		# Number of training examples
 		m = data.shape[1]
@@ -262,7 +260,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		biases = []
 		for jj in range(self.mid * 2):
 			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].hidden_biases) 
+			biases.append(self.layers[jj].biases) 
 			
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
@@ -317,7 +315,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
 			
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 			
 		# We're done !
 		self.is_trained = True

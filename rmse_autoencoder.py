@@ -60,7 +60,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		biases = []
 		for jj in range(self.mid * 2):
 			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].hidden_biases) 
+			biases.append(self.layers[jj].biases) 
 			
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
@@ -87,7 +87,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(opt_theta, jj, indices, weights_shape, biases_shape)
 			
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 		
 		if verbose: print result
 		
@@ -128,7 +128,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
 
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 	
 		# Number of training examples
 		m = data.shape[1]
@@ -275,7 +275,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		biases = []
 		for jj in range(self.mid * 2):
 			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].hidden_biases) 
+			biases.append(self.layers[jj].biases) 
 			
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
@@ -330,7 +330,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
 			
 			self.layers[jj].weights = w
-			self.layers[jj].hidden_biases = b
+			self.layers[jj].biases = b
 			
 		# We're done !
 		self.is_trained = True

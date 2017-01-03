@@ -49,7 +49,7 @@ class RBM(layer.AE_layer):
 		
 		rmsd_logger = []
 		best_weights = np.zeros_like(vishid)
-		best_hidden_biases = np.zeros_like(hidbiases)
+		best_biases = np.zeros_like(hidbiases)
 		best_rmsd = None
 		iter_since_best = 0
 		
@@ -139,8 +139,8 @@ class RBM(layer.AE_layer):
 			if self.early_stop:			
 				if best_rmsd is None or (rmsd - best_rmsd) / best_rmsd < -1e-3 :
 					best_weights = vishid
-					best_hidden_biases = hidbiases
-					best_visible_biases = visbiases
+					best_biases = hidbiases
+					best_inverse_biases = visbiases
 					best_rmsd = rmsd
 					iter_since_best = 0
 				else :
@@ -152,15 +152,15 @@ class RBM(layer.AE_layer):
 					break
 			else: 
 				best_weights = vishid
-				best_hidden_biases = hidbiases
-				best_visible_biases = visbiases
+				best_biases = hidbiases
+				best_inverse_biases = visbiases
 				best_rmsd = rmsd
 				iter_since_best = 0
 			
 			#print ' rmsd = ', rmsd
 		self.weights = best_weights
-		self.hidden_biases = best_hidden_biases
-		self.visible_biases = best_visible_biases
+		self.biases = best_biases
+		self.inverse_biases = best_inverse_biases
 		rmsd_history = np.asarray(rmsd_logger)
 		if iter_since_best > 0 :
 			self.train_history = rmsd_history[:-1*iter_since_best]

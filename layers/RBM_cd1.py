@@ -35,13 +35,13 @@ class RBM(layer.AE_layer):
 
 		total_batches = np.int(np.ceil(N/self.mini_batch))
 
-		m_visible_biases = np.zeros(num_visible)
-		m_hidden_biases = np.zeros(self.hidden_nodes)
+		m_inverse_biases = np.zeros(num_visible)
+		m_biases = np.zeros(self.hidden_nodes)
 
 		m_weights = np.random.randn(num_visible, self.hidden_nodes) * 0.01
 		momentum_weights = np.zeros_like(m_weights)
-		momentum_visible_biases = np.zeros_like(m_visible_biases)
-		momentum_hidden_biases = np.zeros_like(m_hidden_biases)
+		momentum_inverse_biases = np.zeros_like(m_inverse_biases)
+		momentum_biases = np.zeros_like(m_biases)
 		
 		momentum_rate = finalmomentum
 		
@@ -58,20 +58,20 @@ class RBM(layer.AE_layer):
 			batch = data_train[start:end]
 			batch = batch
 			
-			weights, visible_biases, hidden_biases = self._CD1(batch, 
-				m_weights, m_visible_biases, m_hidden_biases)
+			weights, inverse_biases, biases = self._CD1(batch, 
+				m_weights, m_inverse_biases, m_biases)
 			
 			momentum_weights = momentum_rate * momentum_weights + weights
-			momentum_visible_biases = momentum_rate * momentum_visible_biases + visible_biases
-			momentum_hidden_biases = momentum_rate * momentum_hidden_biases + hidden_biases
+			momentum_inverse_biases = momentum_rate * momentum_inverse_biases + inverse_biases
+			momentum_biases = momentum_rate * momentum_biases + biases
 			
 			m_weights += momentum_weights * learning_rate
-			m_visible_biases += momentum_visible_biases * learning_rate
-			m_hidden_biases += momentum_hidden_biases * learning_rate
+			m_inverse_biases += momentum_inverse_biases * learning_rate
+			m_biases += momentum_biases * learning_rate
 			
 			# Reconstruction error, no sampling done, using raw probability
 			output = np.dot(data_train, m_weights) \
-										+ np.tile(hidden_biases, (N,1))
+										+ np.tile(biases, (N,1))
 			if self.visible_type == "SIGMOID":
 				hidden_state = u.sigmoid(output)
 			elif self.visible_type == "RELU":
@@ -81,7 +81,7 @@ class RBM(layer.AE_layer):
 				
 			
 			reconstruction = np.dot(hidden_state, m_weights.T) +  \
-										+ np.tile(visible_biases, (N,1))
+										+ np.tile(inverse_biases, (N,1))
 
 			if self.visible_type == "SIGMOID":
 				reconstruction = u.sigmoid(reconstruction)
@@ -98,8 +98,8 @@ class RBM(layer.AE_layer):
 			if self.early_stop:			
 				if best_rmsd is None or (rmsd - best_rmsd) / best_rmsd < -1e-3 :
 					best_weights = m_weights
-					best_hidden_biases = hidden_biases
-					best_visible_biases = visible_biases
+					best_biases = biases
+					best_inverse_biases = inverse_biases
 					best_rmsd = rmsd
 					iter_since_best = 0
 				else :
@@ -112,15 +112,15 @@ class RBM(layer.AE_layer):
 				
 			else: 
 				best_weights = m_weights
-				best_hidden_biases = hidden_biases
-				best_visible_biases = visible_biases
+				best_biases = biases
+				best_inverse_biases = inverse_biases
 				best_rmsd = rmsd
 				iter_since_best = 0
 			
 			#print ' rmsd = ', rmsd
 		self.weights = best_weights
-		self.hidden_biases = best_hidden_biases
-		self.visible_biases = best_visible_biases
+		self.biases = best_biases
+		self.inverse_biases = best_inverse_biases
 		rmsd_history = np.asarray(rmsd_logger)
 		if iter_since_best > 0 :
 			self.train_history = rmsd_history[:-1*iter_since_best]
@@ -148,8 +148,8 @@ class RBM(layer.AE_layer):
 			hidden_state = self._add_gaussian_noise(nw)
 			
 		gradient1 = self._gradient_weights(visible_state, hidden_state, weights)
-		visible_biases1 = self._gradient_biases(visible_state, visible_bias)
-		hidden_biases1 = self._gradient_biases(hidden_state, hidden_bias)
+		inverse_biases1 = self._gradient_biases(visible_state, visible_bias)
+		biases1 = self._gradient_biases(hidden_state, hidden_bias)
 
 		# Negative phase
 		# Skip sampling as well...
@@ -170,15 +170,15 @@ class RBM(layer.AE_layer):
 			hidden_state = nw
 
 		gradient2 = self._gradient_weights(visible_state, hidden_state, weights)
-		visible_biases2 = self._gradient_biases(visible_state, visible_bias)
-		hidden_biases2 = self._gradient_biases(hidden_state, hidden_bias)
+		inverse_biases2 = self._gradient_biases(visible_state, visible_bias)
+		biases2 = self._gradient_biases(hidden_state, hidden_bias)
 		
 		# gradients
 		weights = gradient1 - gradient2;
-		visible_biases = visible_biases1 - visible_biases2;
-		hidden_biases= hidden_biases1 - hidden_biases2;
+		inverse_biases = inverse_biases1 - inverse_biases2;
+		biases= biases1 - biases2;
 
-		return weights, visible_biases, hidden_biases
+		return weights, inverse_biases, biases
 			
 	def _samplebinary(self, data):
 

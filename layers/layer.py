@@ -1,5 +1,4 @@
 import numpy as np
-import utils
 
 class AE_layer():
 	def __init__(self, hidden_nodes, visible_type, hidden_type, mini_batch, iterations, 
@@ -18,48 +17,18 @@ class AE_layer():
 		self.visible_type = visible_type
 		self.hidden_type = hidden_type
 		
-		self.visible_act_fct = eval("act.{}".format(self.visible_type.lower()))
-		self.hidden_act_fct = eval("act.{}".format(self.hidden_type.lower()))
-		self.visible_act_fct_prime = eval("act.{}_prime".format(self.visible_type.lower()))
-		self.hidden_act_fct_prime = eval("act.{}_prime".format(self.hidden_type.lower()))
+		self.act_fct = eval("act.{}".format(self.activation.lower()))
 	
 	def compute_layer(self, m_input):
-		return np.dot(m_input, self.weights) + self.hidden_biases
+		return np.dot(m_input, self.weights) + self.biases
 	
 	def compute_inverse(self, m_input):
-		return np.dot(m_input, self.weights.T) + self.visible_biases
+		return np.dot(m_input, self.weights.T) + self.inverse_biases
 	
 	def activate(self, activation):
-		
-		m_output = self.visible_act_fct(activation)
-		"""
-		if(self.visible_type == "SIGMOID"):
-			m_output = utils.sigmoid(activation)
-		elif(self.visible_type == "RELU"):
-			m_output = utils.relu(activation)
-		elif(self.visible_type == "LEAKY_RELU"):
-			m_output = utils.leaky_relu(activation)
-		elif(self.visible_type == "LINEAR"):
-			m_output = activation
-		else:
-			raise NotImplemented("Unrecogonised hidden type")
-		"""
+		m_output = self.activation_fct(activation)
 		return m_output
-	"""
-	def prime_activate(self, activation):
-		if(self.hidden_type == "SIGMOID"):
-			prime = utils.sigmoid_prime(activation)
-		elif(self.visible_type == "RELU"):
-			prime = utils.relu_prime(activation)
-		elif(self.visible_type == "LEAKY_RELU"):
-			prime = utils.leaky_relu_prime(activation)
-		elif(self.hidden_type == "LINEAR"):
-			prime = activation
-		else:
-			raise NotImplemented("Unrecogonised hidden type")
-			
-		return prime
-	"""
+
 	def full_feedforward(self, data, return_activation=False, dropout=None, return_hidden=False):
 		hidden_data = self.feedforward_memory(data, dropout=dropout)
 		activation = self.compute_inverse(hidden_data)
@@ -85,7 +54,7 @@ class AE_layer():
 		if debug:
 			print np.shape(m_input), '< data'
 			print np.shape(self.weights), '< weights'
-			print np.shape(self.hidden_biases), '< bias'
+			print np.shape(self.biases), '< bias'
 			print np.shape(m_input), np.shape(self.weights)
 		
 		activation = self.compute_layer(m_input)
@@ -94,6 +63,7 @@ class AE_layer():
 
 		if dropout is not None:
 			print 'dropout!'
+			raise ValueError("Should be checked before use!")
 			dropouts = np.random.binomial(1, 1.-dropout, size=m_output.shape) * (1. / (1. - dropout))
 			m_output *= dropouts
 			activation *= dropouts
@@ -108,8 +78,19 @@ class AE_layer():
 		
 		return m_output
 	
-	def plot_train_history(self):
-		import pylab as plt
-		plt.figure()
-		plt.plot(np.arange(np.size(self.train_history)), self.train_history, lw=2)
-		plt.show()
+	def _roll(self, weights, inverse_biases, biases):
+		return np.concatenate([weights.ravel(), inverse_biases, biases])
+	
+	def _unroll(self, theta):
+		
+		nw = np.size(self.weights)
+		nvb = np.size(self.inverse_biases)
+		
+		weights = theta[:nw]
+		inverse_biases = theta[nw:nw+nvb]
+		biases = theta[nw+nvb:]
+		
+		weights = weights.reshape([self.visible_dims, self.hidden_nodes])
+		
+		return weights, inverse_biases, biases
+

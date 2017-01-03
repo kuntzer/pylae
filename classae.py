@@ -58,10 +58,9 @@ class GenericAutoEncoder():
 		self.mid = len(self.layers)/2
 		for layer in self.layers[self.mid:] :
 			layer.weights = layer.weights.T
-			layer.hidden_biases, layer.visible_biases = layer.visible_biases, layer.hidden_biases
-			layer.hidden_type, layer.visible_type = layer.visible_type, layer.hidden_type
+			layer.biases, layer.inverse_biases = layer.inverse_biases, layer.biases		
+			#layer.activation_fct, layer.activation_inv_fct = layer.activation_inv_fct, layer.activation_fct
 			
-		
 	def feedforward(self, data, dropout=None):
 		"""
 		Encodes and decodes the data using the full auto-encoder
