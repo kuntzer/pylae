@@ -132,7 +132,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# Cost function
 
 		if cost_fct == 'L2':
-		
+			raise ValueError("To redo")
 			# Back-propagation
 			delta = -(data - ch)
 		
@@ -212,7 +212,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 					
 				dEdb = np.mean(dEda, axis=1)
 
-				dEdw = dEda.dot(hn) / m + lambda_ * self.layers[jj].weights.T
+				dEdw = (dEda.dot(hn) + lambda_ * self.layers[jj].weights.T) / m
 				dEdw = dEdw.T
 				
 				wgrad.append(dEdw)
@@ -242,80 +242,3 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		iterations = -1
 		return self.fine_tune(data, iterations, regularisation, sparsity, beta,	method, verbose, return_info, cost_fct)
-
-	def sgd(self, data, iterations, learning_rate, initial_momentum, final_momentum, minibatch=10, \
-		annealing=None, max_epoch_without_improvement=30, early_stop=True, corruption=None):
-		"""
-		Performes an Stochastic gradient descent (SGD) optimisation of the network.
-		"""
-		
-		m = data.shape[1]
-		data = data.T
-		
-		###########################################################################################
-		# Initialisation of the weights and bias
-		
-		# Copy the weights and biases into a state vector theta
-		weights = []
-		biases = []
-		for jj in range(self.mid * 2):
-			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].biases) 
-			
-		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
-		del weights, biases
-		
-		###########################################################################################
-		v_mom = 0
-		best_cost = 1e8
-		
-		batch_indices = np.arange(m)
-		n_minibatches = np.int(np.ceil(m/minibatch))
-		
-		gamma = initial_momentum
-		
-		for epoch in range(iterations):
-			np.random.shuffle(batch_indices)			
-			for ibatch in range(n_minibatches+1):
-				ids = batch_indices[ibatch*minibatch:(ibatch+1)*minibatch]
-				batch = data[:,ids]
-				
-				_, thetan = self.cost(theta, indices, weights_shape, biases_shape,
-				0, 0, 0, batch, corruption=corruption, cost_fct='cross-entropy', log_cost=False)
-				v_mom = gamma * v_mom + learning_rate * thetan
-				theta -= v_mom
-			
-			actual = self.feedforward(data.T)
-			cost = u.cross_entropy(data.T, actual)
-			print 'Epoch %4d/%4d:\t%e' % (epoch+1, iterations, cost)
-
-			self.train_history.append(cost)
-			
-			if cost <= best_cost :
-				best_cost = cost
-				iter_best = epoch
-				
-			if epoch - iter_best > max_epoch_without_improvement :
-				print 'STOP: %d epoches without improvment' % max_epoch_without_improvement
-				break
-			
-			
-			if annealing is not None:
-				learning_rate /= (1. + float(epoch) / annealing)
-				
-			if epoch > 100:
-				gamma = final_momentum
-			else:
-				gamma = initial_momentum + (final_momentum - initial_momentum) * u.sigmoid(epoch - 50)
-			print learning_rate, gamma
-			
-		###########################################################################################
-		# Unroll the state vector and saves it to self.	
-		for jj in range(self.mid * 2):
-			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
-			
-			self.layers[jj].weights = w
-			self.layers[jj].biases = b
-			
-		# We're done !
-		self.is_trained = True

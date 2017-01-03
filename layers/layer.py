@@ -29,7 +29,7 @@ class AE_layer():
 		m_output = self.activation_fct(activation)
 		return m_output
 
-	def full_feedforward(self, data, return_activation=False, dropout=None, return_hidden=False):
+	def round_feedforward(self, data, return_activation=False, dropout=None, return_hidden=False):
 		hidden_data = self.feedforward_memory(data, dropout=dropout)
 		activation = self.compute_inverse(hidden_data)
 		m_output = self.activate(activation)

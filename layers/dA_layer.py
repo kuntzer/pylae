@@ -4,6 +4,7 @@ import scipy.optimize
 import layer
 from .. import processing
 from .. import act 
+from .. import utils
 
 class Layer(layer.AE_layer):
 	def __init__(self, hidden_nodes, activation, mini_batch, iterations, 
@@ -46,12 +47,7 @@ class Layer(layer.AE_layer):
 		else:
 			cdata = data.T
 			
-		h = self.full_feedforward(cdata).T
-		#if not self.corruption is None:
-		#	hn = self#self.feedforward(data.T)
-		#else:
-		#	pass
-		#hd = self.feedforward(data.T)
+		h = self.round_feedforward(cdata).T
 		hn = self.output
 			
 		# Compute the gradients:
@@ -60,20 +56,17 @@ class Layer(layer.AE_layer):
 		# First: bottom to top
 		dEda = h - data
 		dEdvb = np.mean(dEda, axis=1)
-		#Second: top to bottom
-		
-		
+
+		# Second: top to bottom
 		dEda = (self.weights.T).dot(dEda) * (hn * (1. - hn)).T
 		dEdhb = np.mean(dEda, axis=1)
 		
-		dEdw = dEda.dot(data.T) / m + lambda_ * self.weights.T / m
-		dEdw = dEdw.T
+		dEdw = (data.dot(dEda.T) + lambda_ * self.weights) / m
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 
 		# Computes the cross-entropy
-		cost = - np.sum(data * np.log(h) + (1. - data) * np.log(1. - h), axis=0) 
-		cost = np.mean(cost)
-				
+		cost = utils.cross_entropy(data, h)
+		
 		if log_cost:
 			self.train_history.append(cost)
 		
@@ -107,12 +100,6 @@ class Layer(layer.AE_layer):
 		
 		self.inverse_biases = np.zeros(numdims)
 		self.biases = np.zeros(self.hidden_nodes)
-		"""print np.shape(self.inverse_biases)
-		print np.shape(self.biases); 
-		print np.shape(self.weights)
-		print np.shape(data)
-		print np.shape(np.dot(data,self.weights))
-		exit()"""
 		theta = self._roll(self.weights, self.inverse_biases, self.biases)
 	
 		data = data.T

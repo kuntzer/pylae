@@ -22,7 +22,7 @@ images_test = images[ids_test]
 # Preparing the SAE
 dA = pylae.dA.AutoEncoder("sae_mnist_fasttest")
 
-architecture = [128, 64, 16]
+architecture = [128, 64, 8]
 layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
 cost_fct = 'cross-entropy'
 
