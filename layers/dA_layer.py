@@ -31,7 +31,7 @@ class Layer(layer.AE_layer):
 			batch = data
 		else:
 			ids_batch = utils.select_mini_batch(self)
-			batch = data[:,ids_batch]
+			batch = data[ids_batch]
 
 		m = batch.shape[1]
 		
@@ -40,11 +40,11 @@ class Layer(layer.AE_layer):
 
 		# Forward passes
 		if not self.corruption is None:
-			cdata = processing.corrupt(self, batch, self.corruption).T
+			cdata = processing.corrupt(self, batch, self.corruption)
 		else:
-			cdata = batch.T
+			cdata = batch
 			
-		h = self.round_feedforward(cdata).T
+		h = self.round_feedforward(cdata)
 		hn = self.output
 			
 		# Compute the gradients:
@@ -52,17 +52,17 @@ class Layer(layer.AE_layer):
 		
 		# First: bottom to top
 		dEda = h - batch
-		dEdvb = np.mean(dEda, axis=1)
+		dEdvb = np.mean(dEda, axis=0)
 
 		# Second: top to bottom
-		dEda = (self.weights.T).dot(dEda) * (hn * (1. - hn)).T
-		dEdhb = np.mean(dEda, axis=1)
+		dEda = (dEda).dot(self.weights) * (hn * (1. - hn))
+		dEdhb = np.mean(dEda, axis=0)
 		
-		dEdw = (batch.dot(dEda.T) + self.regularisation * self.weights) / m
+		dEdw = ((dEda.T).dot(batch).T + self.regularisation * self.weights) / m
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 
 		# Computes the cross-entropy
-		cost = utils.cross_entropy(batch.T, h.T)
+		cost = utils.cross_entropy(batch, h)
 		
 		if log_cost:
 			self.train_history.append(cost)
@@ -75,7 +75,7 @@ class Layer(layer.AE_layer):
 		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
 		
 		:param data: The data to be used
-		:param iterations: the number of epochs (i.e. nb of loops of mini_batch)
+		:param iterations: the number of iterations
 		:param mini_batch: number of samples to use per batch
 		:param regularisation: the multipler of the L2 regularisation
 		:param method: which method of `scipy.optimize.minimize` to use
@@ -112,13 +112,14 @@ class Layer(layer.AE_layer):
 		self.biases = np.zeros(self.hidden_nodes)
 		theta = self._roll(self.weights, self.inverse_biases, self.biases)
 	
-		data = data.T
+		#data = data.T
 		
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
 		J = lambda x: self.cost(x, data, log_cost=True)
 
-		options_ = {'maxiter': self.iterations, 'disp': self.verbose}
+		myfactr = 0
+		options_ = {'maxiter': self.iterations, 'disp': self.verbose, 'ftol' : myfactr * np.finfo(float).eps}
 		# We overwrite these options with any user-specified kwargs:
 		options_.update(kwargs)
 		

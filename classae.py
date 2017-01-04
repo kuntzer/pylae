@@ -94,7 +94,7 @@ class GenericAutoEncoder():
 		:returns: encoded data
 		"""
 		for layer in self.layers[:self.mid] :
-			if self.verbose: print "encoding, for dimensions", layer.weights.shape
+			if self.verbose: print "encoding,", layer.weights.shape
 			data = layer.feedforward(data)
 			
 		return data
@@ -107,7 +107,7 @@ class GenericAutoEncoder():
 		:returns: decoded data
 		"""
 		for layer in self.layers[self.mid:] :
-			if self.verbose: print "decoding, for dimensions", layer.weights.shape
+			if self.verbose: print "decoding,", layer.weights.shape
 			data = layer.feedforward(data)
 			
 		return data

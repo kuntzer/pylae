@@ -18,6 +18,8 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		else:
 			raise RuntimeError("Layer/pre-training type %s unknown." % self.rbm_type)
 		
+		if not len(architecture) == len(layers_activations):
+			raise ValueError("The size of the list of activation function must match the number of layers.")
 		
 		layers = []
 		shape_previous_layer = np.shape(data)
@@ -59,7 +61,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# TODO:
 		# we could change this in the whole code so that we don't need to transpose too many
 		# times. However, transpose is an a fast operation as it returns a view of the array...
-		data = data.T
+		#data = data.T
 		
 		###########################################################################################
 		# Initialisation of the weights and bias
@@ -125,7 +127,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			batch = data
 		else:
 			ids_batch = u.select_mini_batch(self)
-			batch = data[:,ids_batch]
+			batch = data[ids_batch]
 
 		m = batch.shape[1]
 
@@ -135,7 +137,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		else:
 			cdata = batch
 		
-		h = self.feedforward(batch.T).T
+		h = self.feedforward(batch)
 
 		wgrad = []
 		bgrad = []
@@ -149,7 +151,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			if jj - 1 < 0:
 				hn = batch
 			else:
-				hn = self.layers[jj-1].output.T
+				hn = self.layers[jj-1].output
 			
 			# If last layer, we compute the delta = output - expectation
 			if dEda is None: 
@@ -157,15 +159,15 @@ class AutoEncoder(classae.GenericAutoEncoder):
 				dEda = dEda.T
 			else:
 				if corruption is None:
-					a = self.layers[jj].output
+					a = self.layers[jj].output.T
 				else:
-					a = self.feedforward_to_layer(cdata.T, jj)
+					a = self.feedforward_to_layer(cdata, jj).T
 				
-				wp1 = self.layers[jj+1].weights.T
-				dEda = dEda.dot(wp1) * (a * (1. - a))
+				wp1 = self.layers[jj+1].weights
+				dEda = wp1.dot(dEda) * (a * (1. - a))
 				
-			dEdb = np.mean(dEda, axis=0)
-			dEdw = (hn.dot(dEda) + self.regularisation * self.layers[jj].weights) / m
+			dEdb = np.mean(dEda, axis=1)
+			dEdw = ((dEda).dot(hn).T + self.regularisation * self.layers[jj].weights) / m
 			
 			wgrad.append(dEdw)
 			bgrad.append(dEdb)
