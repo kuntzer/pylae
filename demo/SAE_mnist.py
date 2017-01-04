@@ -20,7 +20,7 @@ images_train = images[ids_train]
 images_test = images[ids_test]
 
 # Preparing the SAE
-dA = pylae.dA.AutoEncoder("sae_mnist_fasttest")
+dA = pylae.dA.AutoEncoder("sae_mnist_fasttest", verbose=True)
 
 architecture = [128, 64, 8]
 layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID", "SIGMOID"]
@@ -29,11 +29,11 @@ cost_fct = 'cross-entropy'
 # Define what training we should do
 do_pre_train = True
 do_train = True
-iters = 20
+iters = 200
 
 # Layer pre-training
 if do_pre_train:
-	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=0, corruption=None)
+	dA.pre_train(images_train, architecture, layers_activation, iterations=iters*100, mini_batch=500, corruption=None)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))

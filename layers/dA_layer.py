@@ -7,8 +7,7 @@ from .. import act
 from .. import utils
 
 class Layer(layer.AE_layer):
-	def __init__(self, hidden_nodes, activation, mini_batch, iterations, 
-				corruption, max_epoch_without_improvement=50, early_stop=True):
+	def __init__(self, hidden_nodes, activation, corruption, verbose=True):
 		"""
 		:param hidden_nodes: Number of neurons in layer
 		:param activation: Activation function for the layer
@@ -20,32 +19,30 @@ class Layer(layer.AE_layer):
 		"""
 		self.hidden_nodes = hidden_nodes
 		self.activation_name = activation
-		self.mini_batch = mini_batch
-		self.iterations = iterations
-		self.max_epoch_without_improvement = max_epoch_without_improvement
-		self.early_stop = early_stop
 		self.train_history = []
 		self.corruption = corruption
+		self.verbose = verbose
 		
 		self.activation_fct = eval("act.{}".format(self.activation_name.lower()))
 	
-	def cost(self, theta, data, log_cost=False, **params):
+	def cost(self, theta, data, log_cost=False):
 
-		if not 'regularisation' in params:
-			lambda_ = 0.
+		if self.mini_batch <= 0:
+			batch = data
 		else:
-			lambda_ = params['regularisation']
+			ids_batch = self._select_mini_batch()
+			batch = data[:,ids_batch]
 
-		m = data.shape[1]
+		m = batch.shape[1]
 		
 		# Unroll theta
 		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
 
 		# Forward passes
 		if not self.corruption is None:
-			cdata = processing.corrupt(self, data, self.corruption).T
+			cdata = processing.corrupt(self, batch, self.corruption).T
 		else:
-			cdata = data.T
+			cdata = batch.T
 			
 		h = self.round_feedforward(cdata).T
 		hn = self.output
@@ -54,18 +51,18 @@ class Layer(layer.AE_layer):
 		# http://neuralnetworksanddeeplearning.com/chap3.html for details
 		
 		# First: bottom to top
-		dEda = h - data
+		dEda = h - batch
 		dEdvb = np.mean(dEda, axis=1)
 
 		# Second: top to bottom
 		dEda = (self.weights.T).dot(dEda) * (hn * (1. - hn)).T
 		dEdhb = np.mean(dEda, axis=1)
 		
-		dEdw = (data.dot(dEda.T) + lambda_ * self.weights) / m
+		dEdw = (batch.dot(dEda.T) + self.regularisation * self.weights) / m
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 
 		# Computes the cross-entropy
-		cost = utils.cross_entropy(data, h)
+		cost = utils.cross_entropy(batch, h)
 		
 		if log_cost:
 			self.train_history.append(cost)
@@ -73,19 +70,56 @@ class Layer(layer.AE_layer):
 		# Returns the gradient as a vector.
 		return cost, grad
 	
-	
-	def train(self, data, data_std=[0.,1.], data_norm=[0., 1.], method='L-BFGS-B', verbose=True, return_info=False, weight=0.1, **kwargs):
-		# TODO: deal with minibatches!
+	def _new_epoch(self):
+		self.mini_batch_ids = np.ones(self.Ndata)
 		
-		_, numdims = np.shape(data)
-		self.data_std = data_std
-		self.data_norm = data_norm
-		#N = self.mini_batch
+	def _select_mini_batch(self):
+		
+		if np.sum(self.mini_batch_ids) <= 0:
+			self._new_epoch()
+		
+			if self.verbose: 
+				print "A new epoch has started"
+				
+		if np.sum(self.mini_batch_ids) < self.mini_batch:
+			b = int(self.mini_batch_ids.sum())
+		else:
+			b = self.mini_batch
+	
+		aids = np.where(self.mini_batch_ids == 1)[0]
+		avail_ids = np.arange(self.Ndata)[aids]
+		ids_batch = np.random.choice(avail_ids, b, replace=False)
+		
+		self.mini_batch_ids[ids_batch] = 0
+
+		return np.arange(self.Ndata)[ids_batch]
+	
+	def train(self, data, iterations, mini_batch=0, regularisation=0, method='L-BFGS-B', weight=0.1, **kwargs):
+		"""
+		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
+		
+		:param data: The data to be used
+		:param iterations: the number of epochs (i.e. nb of loops of mini_batch)
+		:param mini_batch: number of samples to use per batch
+		:param regularisation: the multipler of the L2 regularisation
+		:param method: which method of `scipy.optimize.minimize` to use
+		:pram weights: the standard deviation of the zero-centred weights (biases are initialised to 0)
+		
+		all remaining `kwargs` are passed to `scipy.optimize.minimize`.
+		"""
+		
+		self.Ndata, numdims = np.shape(data)
+		self.mini_batch = mini_batch
+		self.mini_batch_ids = self._new_epoch()
+		
+		self.iterations = iterations
+		
 		self.visible_dims = numdims
 		
 		self.weights = weight * np.random.randn(numdims, self.hidden_nodes)
 		
-		# This apparently is better, but definitely noisier (or plain worse)!
+		# This apparently this should be better, but definitely noisier (or plain worse)!
+		"""
 		self.weights2 = 4 * np.random.uniform(
 					low=-np.sqrt(6. / (numdims + self.hidden_nodes)),
 					high=np.sqrt(6. / (numdims + self.hidden_nodes)),
@@ -97,6 +131,7 @@ class Layer(layer.AE_layer):
 					size=(numdims, self.hidden_nodes))
 		
 		#print 'WEIGHTS:', np.amin(self.weights), np.amax(self.weights), np.mean(self.weights), np.std(self.weights)
+		"""
 		
 		self.inverse_biases = np.zeros(numdims)
 		self.biases = np.zeros(self.hidden_nodes)
@@ -106,9 +141,12 @@ class Layer(layer.AE_layer):
 		
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
-		J = lambda x: self.cost(x, data, log_cost=True, **kwargs)
+		J = lambda x: self.cost(x, data, log_cost=True)
 
-		options_ = {'maxiter': self.iterations, 'disp': verbose, 'ftol' : 10. * np.finfo(float).eps}
+		options_ = {'maxiter': self.iterations, 'disp': self.verbose, "eps":1e-12}#, 'ftol' : 10. * np.finfo(float).eps}
+		# We overwrite these options with any user-specified kwargs:
+		options_.update(kwargs)
+		
 		result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
 		opt_theta = result.x
 		
@@ -116,9 +154,5 @@ class Layer(layer.AE_layer):
 		# Unroll the state vector and saves it to self.	
 		self.weights, self.inverse_biases, self.biases = self._unroll(opt_theta)
 		
-		if verbose: print result
-				
-		# If the user requests the informations about the minimisation...
-		if return_info: return result
-	
+		if self.verbose: print result	
 		

@@ -9,7 +9,7 @@ import processing
 
 class AutoEncoder(classae.GenericAutoEncoder):
 	
-	def pre_train(self, data, architecture, layers_activations, mini_batch, iterations, corruption=None, **kwargs):
+	def pre_train(self, data, architecture, layers_activations, mini_batch, iterations, corruption=None, regularisation=0, **kwargs):
 
 		if self.layer_type == "dA" :
 			import layers.dA_layer as network
@@ -28,9 +28,9 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			else:
 				corruption_lvl = corruption
 				
-			layer = network.Layer(architecture[ii], layers_activations[ii], mini_batch, 
-						iterations, corruption_lvl)
-			layer.train(data, **kwargs)
+			layer = network.Layer(architecture[ii], layers_activations[ii], corruption_lvl, verbose=self.verbose)
+			layer.regularisation = regularisation
+			layer.train(data, mini_batch=mini_batch, iterations=iterations, **kwargs)
 			print 'continue with next level'
 			shape_previous_layer = np.shape(data)
 			data = layer.feedforward(data)
