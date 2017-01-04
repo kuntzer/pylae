@@ -29,11 +29,11 @@ cost_fct = 'cross-entropy'
 # Define what training we should do
 do_pre_train = True
 do_train = True
-iters = 200
+iters = 50
 
 # Layer pre-training
 if do_pre_train:
-	dA.pre_train(images_train, architecture, layers_activation, iterations=iters*100, mini_batch=500, corruption=None)
+	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=500)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
@@ -41,7 +41,7 @@ else:
 
 # Fine-tuning
 if do_train:
-	dA.fine_tune(images_train, iterations=iters, regularisation=0., sparsity=0.0, beta=0., corruption=None, cost_fct=cost_fct)
+	dA.fine_tune(images_train, iterations=iters, regularisation=0., mini_batch=500, cost_fct=cost_fct)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))

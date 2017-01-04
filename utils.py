@@ -127,8 +127,9 @@ def KL_prime(x, y):
 	return -x/y + (1. - x) / (1. - y)
 
 def cross_entropy(target, preds):
-	cost = - np.sum(target * np.log(preds) + (1. - target) * np.log(1. - preds), axis=1) 
+	cost = - np.sum(target * np.log(preds) + (1. - target) * np.log(1. - preds), axis=0)
 	cost = np.mean(cost)
+	
 	return cost
 
 def rmsd(x, y):

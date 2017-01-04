@@ -62,7 +62,7 @@ class Layer(layer.AE_layer):
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 
 		# Computes the cross-entropy
-		cost = utils.cross_entropy(batch, h)
+		cost = utils.cross_entropy(batch.T, h.T)
 		
 		if log_cost:
 			self.train_history.append(cost)
@@ -143,7 +143,7 @@ class Layer(layer.AE_layer):
 		# Optimisation of the weights and biases according to the cost function
 		J = lambda x: self.cost(x, data, log_cost=True)
 
-		options_ = {'maxiter': self.iterations, 'disp': self.verbose, "eps":1e-12}#, 'ftol' : 10. * np.finfo(float).eps}
+		options_ = {'maxiter': self.iterations, 'disp': self.verbose}
 		# We overwrite these options with any user-specified kwargs:
 		options_.update(kwargs)
 		

@@ -42,13 +42,25 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		self.set_autoencoder(layers)
 		print 'Pre-training complete.'
 		
-	def fine_tune(self, data, iterations=400, regularisation = 0.0, sparsity=0., beta=0., dropout=None,
-					method='L-BFGS-B', verbose=True, return_info=False, corruption=None, cost_fct='L2'):
+	def fine_tune(self, data, iterations=400, regularisation=0.0, mini_batch=0, 
+					method='L-BFGS-B', verbose=True, corruption=None, cost_fct='L2', **kwargs):
+		"""
+		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
+		
+		:param data: The data to be used
+		:param iterations: the number of epochs (i.e. nb of loops of mini_batch)
+		:param mini_batch: number of samples to use per batch
+		:param regularisation: the multipler of the L2 regularisation
+		:param method: which method of `scipy.optimize.minimize` to use
+		
+		all remaining `kwargs` are passed to `scipy.optimize.minimize`.
+		"""
 
 		# TODO:
 		# we could change this in the whole code so that we don't need to transpose too many
 		# times. However, transpose is an a fast operation as it returns a view of the array...
 		data = data.T
+		
 		###########################################################################################
 		# Initialisation of the weights and bias
 		
@@ -62,20 +74,27 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
 		del weights, biases
 		
+		###########################################################################################
+		# Saving some stuff
+		self.regularisation = regularisation
+		self.mini_batch = mini_batch
+		self.weights_shape = weights_shape
+		self.biases_shape = biases_shape
+		self.indices = indices
 
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
 		# under the constraint of regularisation and sparsity given by the user 
-		J = lambda x: self.cost(x, indices, weights_shape, biases_shape,
-			regularisation, sparsity, beta, data, corruption, cost_fct=cost_fct, dropout=dropout)
-		
-		if iterations >= 0:
-			options_ = {'maxiter': iterations, 'disp': verbose, 'ftol' : 10. * np.finfo(float).eps, 'gtol': 1e-9}
-			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
-			opt_theta = result.x
+		if cost_fct == 'cross-entropy':
+			J = lambda x: self.xcross_cost(x, data, corruption)
 		else:
-			c, _ = J(theta)
-			return c
+			raise NotImplemented()
+		
+		options_ = {'maxiter': iterations, 'disp': verbose}
+		# We overwrite these options with any user-specified kwargs:
+		#options_.update(kwargs)
+		result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
+		opt_theta = result.x
 		
 		###########################################################################################
 		# Unroll the state vector and saves it to self.	
@@ -90,13 +109,81 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		# We're done !
 		self.is_trained = True
+	
+	def xcross_cost(self, theta, data, corruption, log_cost=True):
+
+		# Unrolling the weights and biases
+		for jj in range(self.mid * 2):
+			w, b = self._unroll(theta, jj, self.indices, self.weights_shape, self.biases_shape)
+
+			self.layers[jj].weights = w
+			self.layers[jj].biases = b
+	
+		# Number of training examples
+		m = data.shape[1]
+
+		# Forward pass
+			
+		if corruption is not None:
+			cdata = processing.corrupt(self, data, corruption)
+		else:
+			cdata = data
 		
-		# If the user requests the informations about the minimisation...
-		if return_info: return result
+		h = self.feedforward(data.T).T
+
+		wgrad = []
+		bgrad = []
+		############################################################################################
+		# Compute the gradients:
+		# http://neuralnetworksanddeeplearning.com/chap3.html for details
+		dEda = None
+		
+		for jj in range(self.mid * 2 - 1, -1, -1):
+			#print jj, '-------' * 6
+			# The output of the layer right before is
+			if jj - 1 < 0:
+				hn = data
+			else:
+				hn = self.layers[jj-1].output.T
+			
+			# If last layer, we compute the delta = output - expectation
+			if dEda is None: 
+				dEda = h - data
+				dEda = dEda.T
+			else:
+				wp1 = self.layers[jj+1].weights.T
+				if corruption is None:
+					a = self.layers[jj].output
+				else:
+					a = self.feedforward_to_layer(cdata.T, jj)
+				dEda = dEda.dot(wp1) * (a * (1. - a))
+				#print dEda.shape; exit()
+				
+			dEdb = np.mean(dEda, axis=0)
+			dEdw = (hn.dot(dEda) + self.regularisation * self.layers[jj].weights) / m
+			
+			wgrad.append(dEdw)
+			bgrad.append(dEdb)
+
+		# Reverse the order since back-propagation goes backwards 
+		wgrad = wgrad[::-1]
+		bgrad = bgrad[::-1]
+
+		# Computes the cross-entropy
+		cost = u.cross_entropy(data, h)
+
+		if log_cost:
+			self.train_history.append(cost)
+		
+		#exit()
+		# Returns the gradient as a vector.
+		grad = self._roll(wgrad, bgrad, return_info=False)
+		return cost, grad
 	
 	def cost(self, theta, indices, weights_shape, biases_shape, lambda_, sparsity, beta,\
 			 data, corruption, cost_fct, dropout, log_cost=True):
 
+		raise ValueError("Don't use this!")
 		if cost_fct == 'cross-entropy':
 			if beta != 0 or sparsity != 0:
 				beta = 0
@@ -234,11 +321,3 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		grad = self._roll(wgrad, bgrad, return_info=False)
 		return cost, grad
 	
-	def get_cost(self, data, regularisation = 0., sparsity=0., beta=0.,
-					method='L-BFGS-B', verbose=True, return_info=False, cost_fct='L2'):
-		"""
-		Returns the cost, but this is very slow!!!
-		"""
-		
-		iterations = -1
-		return self.fine_tune(data, iterations, regularisation, sparsity, beta,	method, verbose, return_info, cost_fct)
