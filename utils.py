@@ -132,6 +132,30 @@ def cross_entropy(target, preds):
 	
 	return cost
 
+def new_epoch(cl):
+	cl.mini_batch_ids = np.ones(cl.Ndata)
+	
+def select_mini_batch(cl):
+	
+	if not hasattr(cl, 'mini_batch_ids') or np.sum(cl.mini_batch_ids) <= 0:
+		new_epoch(cl)
+	
+		if cl.verbose: 
+			print "A new epoch has started"
+			
+	if np.sum(cl.mini_batch_ids) < cl.mini_batch:
+		b = int(cl.mini_batch_ids.sum())
+	else:
+		b = cl.mini_batch
+
+	aids = np.where(cl.mini_batch_ids == 1)[0]
+	avail_ids = np.arange(cl.Ndata)[aids]
+	ids_batch = np.random.choice(avail_ids, b, replace=False)
+	
+	cl.mini_batch_ids[ids_batch] = 0
+
+	return np.arange(cl.Ndata)[ids_batch]
+
 def rmsd(x, y):
 	"""
 	Returns the RMSD between two numpy arrays

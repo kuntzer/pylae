@@ -81,6 +81,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		self.weights_shape = weights_shape
 		self.biases_shape = biases_shape
 		self.indices = indices
+		self.Ndata = self.layers[0].Ndata 
 
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
@@ -92,7 +93,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		options_ = {'maxiter': iterations, 'disp': verbose}
 		# We overwrite these options with any user-specified kwargs:
-		#options_.update(kwargs)
+		options_.update(kwargs)
 		result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
 		opt_theta = result.x
 		
@@ -120,16 +121,21 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			self.layers[jj].biases = b
 	
 		# Number of training examples
-		m = data.shape[1]
+		if self.mini_batch <= 0:
+			batch = data
+		else:
+			ids_batch = u.select_mini_batch(self)
+			batch = data[:,ids_batch]
+
+		m = batch.shape[1]
 
 		# Forward pass
-			
 		if corruption is not None:
-			cdata = processing.corrupt(self, data, corruption)
+			cdata = processing.corrupt(self, batch, corruption)
 		else:
-			cdata = data
+			cdata = batch
 		
-		h = self.feedforward(data.T).T
+		h = self.feedforward(batch.T).T
 
 		wgrad = []
 		bgrad = []
@@ -139,25 +145,24 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		dEda = None
 		
 		for jj in range(self.mid * 2 - 1, -1, -1):
-			#print jj, '-------' * 6
 			# The output of the layer right before is
 			if jj - 1 < 0:
-				hn = data
+				hn = batch
 			else:
 				hn = self.layers[jj-1].output.T
 			
 			# If last layer, we compute the delta = output - expectation
 			if dEda is None: 
-				dEda = h - data
+				dEda = h - batch
 				dEda = dEda.T
 			else:
-				wp1 = self.layers[jj+1].weights.T
 				if corruption is None:
 					a = self.layers[jj].output
 				else:
 					a = self.feedforward_to_layer(cdata.T, jj)
+				
+				wp1 = self.layers[jj+1].weights.T
 				dEda = dEda.dot(wp1) * (a * (1. - a))
-				#print dEda.shape; exit()
 				
 			dEdb = np.mean(dEda, axis=0)
 			dEdw = (hn.dot(dEda) + self.regularisation * self.layers[jj].weights) / m
@@ -170,12 +175,11 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		bgrad = bgrad[::-1]
 
 		# Computes the cross-entropy
-		cost = u.cross_entropy(data, h)
+		cost = u.cross_entropy(batch, h)
 
 		if log_cost:
 			self.train_history.append(cost)
 		
-		#exit()
 		# Returns the gradient as a vector.
 		grad = self._roll(wgrad, bgrad, return_info=False)
 		return cost, grad

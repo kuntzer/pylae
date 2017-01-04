@@ -30,7 +30,7 @@ class Layer(layer.AE_layer):
 		if self.mini_batch <= 0:
 			batch = data
 		else:
-			ids_batch = self._select_mini_batch()
+			ids_batch = utils.select_mini_batch(self)
 			batch = data[:,ids_batch]
 
 		m = batch.shape[1]
@@ -70,30 +70,6 @@ class Layer(layer.AE_layer):
 		# Returns the gradient as a vector.
 		return cost, grad
 	
-	def _new_epoch(self):
-		self.mini_batch_ids = np.ones(self.Ndata)
-		
-	def _select_mini_batch(self):
-		
-		if np.sum(self.mini_batch_ids) <= 0:
-			self._new_epoch()
-		
-			if self.verbose: 
-				print "A new epoch has started"
-				
-		if np.sum(self.mini_batch_ids) < self.mini_batch:
-			b = int(self.mini_batch_ids.sum())
-		else:
-			b = self.mini_batch
-	
-		aids = np.where(self.mini_batch_ids == 1)[0]
-		avail_ids = np.arange(self.Ndata)[aids]
-		ids_batch = np.random.choice(avail_ids, b, replace=False)
-		
-		self.mini_batch_ids[ids_batch] = 0
-
-		return np.arange(self.Ndata)[ids_batch]
-	
 	def train(self, data, iterations, mini_batch=0, regularisation=0, method='L-BFGS-B', weight=0.1, **kwargs):
 		"""
 		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
@@ -110,7 +86,6 @@ class Layer(layer.AE_layer):
 		
 		self.Ndata, numdims = np.shape(data)
 		self.mini_batch = mini_batch
-		self.mini_batch_ids = self._new_epoch()
 		
 		self.iterations = iterations
 		
