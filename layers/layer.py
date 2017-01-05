@@ -18,7 +18,8 @@ class AE_layer():
 		self.hidden_type = hidden_type
 		
 		self.act_fct = eval("act.{}".format(self.activation.lower()))
-	
+		self.act_fct_prime = eval("act.{}_prime".format(self.activation.lower()))
+
 	def compute_layer(self, m_input):
 		return np.dot(m_input, self.weights) + self.biases
 	

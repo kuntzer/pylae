@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Layer(layer.AE_layer):
-	def __init__(self, hidden_nodes, activation, corruption, verbose=True):
+	def __init__(self, hidden_nodes, activation, corruption):
 		"""
 		:param hidden_nodes: Number of neurons in layer
 		:param activation: Activation function for the layer
@@ -25,11 +25,11 @@ class Layer(layer.AE_layer):
 		self.activation_name = activation
 		self.train_history = []
 		self.corruption = corruption
-		self.verbose = verbose
 		
 		self.activation_fct = eval("act.{}".format(self.activation_name.lower()))
+		self.activation_fct_prime = eval("act.{}_prime".format(self.activation_name.lower()))
 	
-	def cost(self, theta, data, log_cost=False):
+	def xentropy_cost(self, theta, data):
 		
 		m = data.shape[1]
 
@@ -62,18 +62,64 @@ class Layer(layer.AE_layer):
 		# Computes the cross-entropy
 		cost = utils.cross_entropy(data, h)
 		
-		if log_cost:
-			self.train_history.append(cost)
+		self.train_history.append(cost)
 		
 		# Returns the gradient as a vector.
 		return cost, grad
 	
-	def train(self, data, iterations, mini_batch=0, regularisation=0, method='L-BFGS-B', weight=0.1, **kwargs):
+	def l2_cost(self, theta, data):
+		"""
+		Computes the L2 cost and gradient
+		http://neuralnetworksanddeeplearning.com/chap3.html for details
+		"""
+
+		m = data.shape[1]
+			
+
+		# Unroll theta
+		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
+
+		# Forward passes
+		
+		if self.corruption is not None:
+			cdata = processing.corrupt(self, data, self.corruption)
+			ch = self.round_feedforward(cdata)
+		else:
+			cdata = data
+
+		h, activation_last = self.round_feedforward(data, return_activation=True)
+		if self.corruption is None:
+			ch = h
+			
+		# Back-propagation
+		prime = self.activation_fct_prime(activation_last)
+		deltaL = (ch - data) * prime
+		dEdvb = np.mean(deltaL, axis=0)
+		
+		prime = self.activation_fct_prime(self.activation)
+		
+		deltal = np.multiply((np.dot(deltaL, self.weights)), prime)
+		deltal = np.array(deltal)
+		dEdhb = np.mean(deltal, axis=0) 
+		
+		dEdw = (((deltal.T).dot(data)).T + self.regularisation * self.weights) / m
+
+		grad = self._roll(dEdw, dEdvb, dEdhb)
+		
+		cost = np.sum((h - data) ** 2) / (2 * m) + ((self.regularisation / 2) * np.abs(self.weights)**2).sum()
+					
+		self.train_history.append(cost)
+		
+		# Returns the gradient as a vector.
+		return cost, grad
+	
+	def train(self, data, iterations,  cost_fct, mini_batch=0, regularisation=0, method='L-BFGS-B', weight=0.1, **kwargs):
 		"""
 		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
 		
 		:param data: The data to be used
 		:param iterations: the number of iterations
+		:param cost_fct: what cost function to use
 		:param mini_batch: number of samples to use per batch
 		:param regularisation: the multipler of the L2 regularisation
 		:param method: which method of `scipy.optimize.minimize` to use
@@ -137,8 +183,14 @@ class Layer(layer.AE_layer):
 				ids_batch = utils.select_mini_batch(self)
 				batch = data[ids_batch]
 				
-			# Optimisation of the weights and biases according to the cost function
-			J = lambda x: self.cost(x, batch, log_cost=True)
+			# Selecting the cost function ##########################################################
+			if cost_fct == 'cross-entropy':
+				J = lambda x: self.xentropy_cost(x, batch)
+			elif cost_fct == 'L2':
+				J = lambda x: self.l2_cost(x, batch)
+			else:
+				raise NotImplemented()
+			########################################################################################
 					
 			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
 			

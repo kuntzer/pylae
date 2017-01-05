@@ -17,9 +17,6 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		if self.layer_type == "dA" :
 			import layers.dA_layer as network
 			logger.info("layers.dA_layer used as layer")
-		elif self.layer_type == "rmse" :
-			import layers.rmse_layer as network
-			raise NotImplemented("this layer is not ready yet")
 		else:
 			raise RuntimeError("Layer/pre-training type %s unknown." % self.rbm_type)
 		
@@ -48,13 +45,14 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		self.set_autoencoder(layers)
 		logger.info("Finished with pre-training...")
 		
-	def fine_tune(self, data, iterations=400, regularisation=0.0, mini_batch=0, 
-					method='L-BFGS-B', corruption=None, cost_fct='L2', **kwargs):
+	def fine_tune(self, data, iterations, cost_fct, regularisation=0.0, mini_batch=0, 
+					method='L-BFGS-B', corruption=None, **kwargs):
 		"""
 		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
 		
 		:param data: The data to be used
 		:param iterations: the number of epochs (i.e. nb of loops of mini_batch)
+		:param cost_fct: what cost function to use
 		:param mini_batch: number of samples to use per batch
 		:param regularisation: the multipler of the L2 regularisation
 		:param method: which method of `scipy.optimize.minimize` to use
@@ -107,9 +105,9 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			
 			# Selecting the cost function ##########################################################
 			if cost_fct == 'cross-entropy':
-				J = lambda x: self.xcross_cost(x, data, corruption)
+				J = lambda x: self.xentropy_cost(x, data, corruption)
 			else:
-				raise NotImplemented()
+				J = lambda x: self.l2_cost(x, data, corruption)
 			########################################################################################
 			
 			# Optimising now #######################################################################
@@ -141,7 +139,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# We're done !
 		self.is_trained = True
 	
-	def xcross_cost(self, theta, data, corruption, log_cost=True):
+	def xentropy_cost(self, theta, data, corruption):
 
 		# Unrolling the weights and biases
 		for jj in range(self.mid * 2):
@@ -150,16 +148,16 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			self.layers[jj].weights = w
 			self.layers[jj].biases = b
 
-		batch = data
-		m = batch.shape[1]
+		m = data.shape[1]
 
 		# Forward pass
 		if corruption is not None:
-			cdata = processing.corrupt(self, batch, corruption)
+			cdata = processing.corrupt(self, data, corruption)
+			raise NotImplemented("add h = self.feedforward(cdata) and correct algo")
 		else:
-			cdata = batch
+			cdata = data
 		
-		h = self.feedforward(batch)
+		h = self.feedforward(data)
 
 		wgrad = []
 		bgrad = []
@@ -171,13 +169,13 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		for jj in range(self.mid * 2 - 1, -1, -1):
 			# The output of the layer right before is
 			if jj - 1 < 0:
-				hn = batch
+				hn = data
 			else:
 				hn = self.layers[jj-1].output
 			
 			# If last layer, we compute the delta = output - expectation
 			if dEda is None: 
-				dEda = h - batch
+				dEda = h - data
 				dEda = dEda.T
 			else:
 				if corruption is None:
@@ -199,28 +197,19 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		bgrad = bgrad[::-1]
 
 		# Computes the cross-entropy
-		cost = u.cross_entropy(batch, h)
+		cost = u.cross_entropy(data, h)
 
-		if log_cost:
-			self.train_history.append(cost)
+		self.train_history.append(cost)
 		
 		# Returns the gradient as a vector.
 		grad = self._roll(wgrad, bgrad, return_info=False)
 		return cost, grad
 	
-	def cost(self, theta, indices, weights_shape, biases_shape, lambda_, sparsity, beta,\
-			 data, corruption, cost_fct, dropout, log_cost=True):
-
-		raise ValueError("Don't use this!")
-		if cost_fct == 'cross-entropy':
-			if beta != 0 or sparsity != 0:
-				beta = 0
-				sparsity = 0
-				#print 'WARNING: Cross-entropy does not support sparsity'
+	def l2_cost(self, theta, data, corruption):
 
 		# Unrolling the weights and biases
 		for jj in range(self.mid * 2):
-			w, b = self._unroll(theta, jj, indices, weights_shape, biases_shape)
+			w, b = self._unroll(theta, jj, self.indices, self.weights_shape, self.biases_shape)
 
 			self.layers[jj].weights = w
 			self.layers[jj].biases = b
@@ -229,120 +218,47 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		m = data.shape[1]
 
 		# Forward pass
-			
 		if corruption is not None:
 			cdata = processing.corrupt(self, data, corruption)
+			ch = self.feedforward(cdata)
 		else:
 			cdata = data
-		ch = self.feedforward(cdata.T, dropout=dropout).T
-		h = self.feedforward(data.T, dropout=dropout).T
-
-		# Sparsity
-		sparsity_cost = 0
 		
+		h = self.feedforward(data)
+		if corruption is None:
+			ch = self.feedforward(cdata)
+
 		wgrad = []
 		bgrad = []
 		
-		############################################################################################
-		# Cost function
+		# Back-propagation
+		delta = -(data - ch)
+	
+		# Compute the gradient:
+		for jj in range(self.mid * 2 - 1, -1, -1):
+			if jj < self.mid * 2 - 1:
 
-		if cost_fct == 'L2':
-			raise ValueError("To redo")
-			# Back-propagation
-			delta = -(data - ch)
+				delta = (self.layers[jj+1].weights.dot(delta.T)).T
+				delta = np.array(delta)
+			
+			delta *= self.layers[jj].activation_fct_prime(self.layers[jj].activation)
+			
+			#dEdw = ((dEda.T).dot(data).T + self.regularisation * self.weights) / m
+			#grad_w = delta.dot(self.layers[jj].input) / m + self.regularisation * self.layers[jj].weights
+			grad_w = (((self.layers[jj].input.T).dot(delta)) + self.regularisation * self.layers[jj].weights )/ m
+			grad_b = np.mean(delta, axis=0)
+			wgrad.append(grad_w)
+			bgrad.append(grad_b)
+				
+		# Reverse the order since back-propagation goes backwards 
+		wgrad = wgrad[::-1]
+		bgrad = bgrad[::-1]
 		
-			# Compute the gradient:
-			for jj in range(self.mid * 2 - 1, -1, -1):
-				if jj < self.mid * 2 - 1:
-
-					hn = self.layers[jj].output.T.shape[0]
-					rho_hat = np.mean(self.layers[jj].output.T, axis=1)
-
-					if beta == 0:
-						sparsity_grad = 0
-						sparsity_cost = 0
-					else:
-						rho = sparsity
-						
-						sparsity_cost += beta * np.sum(u.KL_divergence(rho, rho_hat))
-						sparsity_grad = beta * u.KL_prime(rho, rho_hat)
-						sparsity_grad = np.matrix(sparsity_grad).T
-						#spars_grad = np.tile(spars_grad, m).reshape(m,self.hidden_nodes).T
-						#print rho_hat.mean(), 'cost:', sparsity_cost, '<<<<<<<<<<<<<<<'
-						
-						sparsity_cost += beta * np.sum(u.KL_divergence(rho, rho_hat))
-	
-					delta = self.layers[jj+1].weights.dot(delta) + beta * sparsity_grad
-					delta = np.array(delta)
-				
-				if self.layers[jj].hidden_type == 'SIGMOID':
-					delta *= u.sigmoid_prime(self.layers[jj].activation.T)
-				elif self.layers[jj].hidden_type == 'RELU':
-					delta *= u.relu_prime(self.layers[jj].activation.T)
-				elif self.layers[jj].hidden_type == 'LEAKY_RELU':
-					delta *= u.leaky_relu_prime(self.layers[jj].activation.T)
-				elif self.layers[jj].hidden_type == 'LINEAR':
-					pass 
-				else:
-					raise ValueError("Unknown activation function %s" % self.layers[jj].hidden_type)
-				
-				grad_w = delta.dot(self.layers[jj].input) / m + lambda_ * self.layers[jj].weights.T
-				grad_b = np.mean(delta, axis=1)
-				wgrad.append(grad_w.T)
-				bgrad.append(grad_b)
-					
-			# Reverse the order since back-propagation goes backwards 
-			wgrad = wgrad[::-1]
-			bgrad = bgrad[::-1]
-			
-			# Computes the L2 norm + regularisation
-			#TODO: COST MISSES THE COMPLETE SPARSITY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			cost = np.sum((h - data) ** 2) / (2 * m) + (lambda_ / 2) * \
-				(sum([((self.layers[jj].weights)**2).sum() for jj in range(self.mid * 2)])) + \
-				sparsity_cost
-			#print 'tot cost', cost
-		elif cost_fct == 'cross-entropy':
-			# Compute the gradients:
-			# http://neuralnetworksanddeeplearning.com/chap3.html for details
-			dEda = None
-			
-			for jj in range(self.mid * 2 - 1, -1, -1):
-				#print jj, '-------' * 6
-				# The output of the layer right before is
-				if jj - 1 < 0:
-					hn = data.T
-				else:
-					hn = self.layers[jj-1].output
-				
-				# If last layer, we compute the delta = output - expectation
-				if dEda is None: 
-					dEda = ch - data
-				else:
-					wp1 = self.layers[jj+1].weights
-					if corruption is None:
-						a = self.layers[jj].output
-					else:
-						a = self.feedforward_to_layer(cdata.T, jj)
-					dEda = wp1.dot(dEda) * (a * (1. - a)).T
-					
-				dEdb = np.mean(dEda, axis=1)
-
-				dEdw = (dEda.dot(hn) + lambda_ * self.layers[jj].weights.T) / m
-				dEdw = dEdw.T
-				
-				wgrad.append(dEdw)
-				bgrad.append(dEdb)
-	
-			# Reverse the order since back-propagation goes backwards 
-			wgrad = wgrad[::-1]
-			bgrad = bgrad[::-1]
-
-			# Computes the cross-entropy
-			cost = - np.sum(data * np.log(ch) + (1. - data) * np.log(1. - ch), axis=0) 
-			cost = np.mean(cost)
-			
-		if log_cost:
-			self.train_history.append(cost)
+		# Computes the L2 norm + regularisation
+		cost = np.sum((h - data) ** 2) / (2 * m) + (self.regularisation / 2) * \
+			(sum([((self.layers[jj].weights)**2).sum() for jj in range(self.mid * 2)]))
+		
+		self.train_history.append(cost)
 		
 		# Returns the gradient as a vector.
 		grad = self._roll(wgrad, bgrad, return_info=False)
