@@ -7,6 +7,10 @@ import os
 import pylae
 import utils_mnist
 
+import logging
+
+logging.basicConfig(format='PID %(process)06d | %(asctime)s | %(levelname)s: %(name)s(%(funcName)s): %(message)s',level=logging.INFO)
+
 # Loading the data and pre-processing
 N_train = 5000
 N_test = 1500
@@ -20,24 +24,24 @@ images_train = images[ids_train]
 images_test = images[ids_test]
 
 # Preparing the SAE
-dA = pylae.dA.AutoEncoder("sae_mnist", verbose=True)
+dA = pylae.dA.AutoEncoder("sae_mnist")
 
 architecture = [128, 64, 8]
 layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID"]
 cost_fct = 'cross-entropy'
 
 # Define what training we should do
-do_pre_train = True
+do_pre_train = False
 do_train = True
-iters = 20
+iters = 500
 
 # Layer pre-training
 if do_pre_train:
-	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=500)
+	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=0)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
-	print 'pre-trained layers loaded!'
+	logging.info('pre-trained layers loaded!')
 
 # Fine-tuning
 if do_train:
@@ -45,14 +49,20 @@ if do_train:
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
-	print 'Auto-encoders loaded!'
+	logging.info('Auto-encoders loaded!')
 	
 dA.verbose = True
 
 pylae.plots.display_train_history(dA)
 pylae.plots.display_network(dA, 0)
-#pylae.plots.display_network(dA, 1)
-#pylae.plots.display_network(dA, 2)
+try:
+	pylae.plots.display_network(dA, 1)
+except:
+	pass
+try:
+	pylae.plots.display_network(dA, 2)
+except:
+	pass
 
 # Let's encode and decode the test image to see the result:
 images_sae = dA.decode(dA.encode(images_test))
@@ -62,24 +72,20 @@ pca = PCA(n_components=architecture[-1], whiten=True)
 pca.fit(images_train)
 pca_enc = pca.transform(images_test)
 images_pca = pca.inverse_transform(pca_enc)
-images_pca, _,_ = pylae.processing.normalise(images_pca) # PCA IS NOT NORMALISED!
-
-# To avoid numerical issues...
-images_pca += 1e-10
-images_pca *= 0.99999999
+images_pca, _, _ = pylae.processing.normalise(images_pca) # PCA IS NOT NORMALISED!
 
 # Print a few metrics
-print '** cross-entropy **'
-print 'AE cost: {:1.3f}'.format(pylae.utils.cross_entropy(images_test, images_sae))
-print 'PCA cost: {:1.3f}'.format(pylae.utils.cross_entropy(images_test, images_pca))
+logging.info('** cross-entropy **')
+logging.info('AE cost: {:1.3f}'.format(pylae.utils.cross_entropy(images_test, images_sae)))
+logging.info('PCA cost: {:1.3f}'.format(pylae.utils.cross_entropy(images_test, images_pca)))
 
-print '** rmse **'
-print 'AE cost: {:1.2e}'.format(metrics.mean_squared_error(images_test, images_sae))
-print 'PCA cost: {:1.2e}'.format(metrics.mean_squared_error(images_test, images_pca))
+logging.info('** rmse **')
+logging.info('AE cost: {:1.2e}'.format(metrics.mean_squared_error(images_test, images_sae)))
+logging.info('PCA cost: {:1.2e}'.format(metrics.mean_squared_error(images_test, images_pca)))
 
-print '** explained variance **'
-print 'AE cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_sae))
-print 'PCA cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_pca))
+logging.info('** explained variance **')
+logging.info('AE cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_sae)))
+logging.info('PCA cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_pca)))
 
 # Now show the reconstructed images
 size = int(np.sqrt(np.shape(images_test)[1]))

@@ -1,11 +1,14 @@
 import numpy as np
 import copy
-import os
 import scipy.optimize
+from datetime import datetime
 
 import utils as u
 import classae
 import processing
+
+import logging
+logger = logging.getLogger(__name__)
 
 class AutoEncoder(classae.GenericAutoEncoder):
 	
@@ -13,8 +16,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 
 		if self.layer_type == "dA" :
 			import layers.dA_layer as network
+			logger.info("layers.dA_layer used as layer")
 		elif self.layer_type == "rmse" :
 			import layers.rmse_layer as network
+			raise NotImplemented("this layer is not ready yet")
 		else:
 			raise RuntimeError("Layer/pre-training type %s unknown." % self.rbm_type)
 		
@@ -24,29 +29,27 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		layers = []
 		shape_previous_layer = np.shape(data)
 		for ii in range(len(architecture)):
-			print "Pre-training layer %d..." % (ii + 1)
+			logger.info("Pre-training layer {}/{}...".format(ii + 1, len(architecture)))
 			if np.shape(corruption) == shape_previous_layer and ii > 0:
 				corruption_lvl = layers[ii-1].feedforward(corruption)
 			else:
 				corruption_lvl = corruption
 				
-			layer = network.Layer(architecture[ii], layers_activations[ii], corruption_lvl, verbose=self.verbose)
+			layer = network.Layer(architecture[ii], layers_activations[ii], corruption_lvl)
 			layer.regularisation = regularisation
 			layer.train(data, mini_batch=mini_batch, iterations=iterations, **kwargs)
-			print 'continue with next level'
+			logger.info("Finished with pre-training layer {} ({}/{})...".format(layer.weights.shape, ii + 1, len(architecture)))
 			shape_previous_layer = np.shape(data)
 			data = layer.feedforward(data)
 	
 			layers.append(layer)
-			#raise RuntimeError("Stopping heer")
-			
 		
 		self.is_pretrained = True
 		self.set_autoencoder(layers)
-		print 'Pre-training complete.'
+		logger.info("Finished with pre-training...")
 		
 	def fine_tune(self, data, iterations=400, regularisation=0.0, mini_batch=0, 
-					method='L-BFGS-B', verbose=True, corruption=None, cost_fct='L2', **kwargs):
+					method='L-BFGS-B', corruption=None, cost_fct='L2', **kwargs):
 		"""
 		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
 		
@@ -58,26 +61,18 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		
 		all remaining `kwargs` are passed to `scipy.optimize.minimize`.
 		"""
-
-		# TODO:
-		# we could change this in the whole code so that we don't need to transpose too many
-		# times. However, transpose is an a fast operation as it returns a view of the array...
-		#data = data.T
-		
-		###########################################################################################
-		# Initialisation of the weights and bias
-		
 		
 		###########################################################################################
 		# Saving some stuff
 		self.regularisation = regularisation
 		self.mini_batch = mini_batch
 		self.Ndata = self.layers[0].Ndata 
+		time_start = datetime.now()
 
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
 		# under the constraint of regularisation and sparsity given by the user 
-		options_ = {'maxiter': iterations, 'disp': verbose}
+		options_ = {'maxiter': iterations, 'disp': True}
 		# We overwrite these options with any user-specified kwargs:
 		options_.update(kwargs)
 		
@@ -88,8 +83,14 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			if b_it * self.mini_batch < self.Ndata: b_it += 1
 
 		for i_it in range(b_it):
-			if self.verbose: print "** Starting epoch {}/{}... **".format(i_it+1, b_it)
-			# Copy the weights and biases into a state vector theta
+			
+			if b_it > 1:
+				time_itstart = datetime.now()
+				logger.info("Starting epoch {}/{}...".format(i_it+1, b_it))
+			else:
+				logger.info("Starting fine-tuning...")
+
+			# Copy the weights and biases into a state vector theta ################################
 			weights = []
 			biases = []
 			for jj in range(self.mid * 2):
@@ -102,26 +103,41 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			self.weights_shape = weights_shape
 			self.biases_shape = biases_shape
 			self.indices = indices
+			########################################################################################
 			
+			# Selecting the cost function ##########################################################
 			if cost_fct == 'cross-entropy':
 				J = lambda x: self.xcross_cost(x, data, corruption)
 			else:
 				raise NotImplemented()
+			########################################################################################
 			
+			# Optimising now #######################################################################
 			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
-			opt_theta = result.x
+						
+			if len(result) == 9:
+				opt_theta = result.x
+				logger.info("Done with optimization, {0} iterations and {1} evaluations of the objective functions".format(result.nit, result.nfev))
+			else:
+				logger.warning("Optimization output is fishy")	
+			########################################################################################
 		
-			###########################################################################################
-			# Unroll the state vector and saves it to self.	
+			# Unroll the state vector and saves it to self #########################################	
 			for jj in range(self.mid * 2):
 					
 				w, b = self._unroll(opt_theta, jj, indices, weights_shape, biases_shape)
 				
 				self.layers[jj].weights = w
 				self.layers[jj].biases = b
+			########################################################################################
 			
-			if verbose: print result
+			if b_it > 1:
+				now = datetime.now()
+				logger.info("Epoch {}/{} done in {}...".format(i_it+1, b_it, (now - time_itstart)))
 		
+			now = datetime.now()
+			logger.info("Fine-tuning of AE done in {}...".format(now - time_start))
+			
 		# We're done !
 		self.is_trained = True
 	
@@ -328,7 +344,6 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		if log_cost:
 			self.train_history.append(cost)
 		
-		#exit()
 		# Returns the gradient as a vector.
 		grad = self._roll(wgrad, bgrad, return_info=False)
 		return cost, grad

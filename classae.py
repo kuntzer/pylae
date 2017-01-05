@@ -2,14 +2,16 @@ import numpy as np
 import utils
 import copy
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GenericAutoEncoder():
 	
-	def __init__(self, name='ae', layer_type="dA", directory='', verbose=False):
+	def __init__(self, name='ae', layer_type="dA", directory=''):
 		self.name = name
 		self.is_pretrained = False
 		self.is_trained = False
-		self.verbose = verbose
 		self.layer_type = layer_type
 		
 		self.filepath = os.path.join(directory, name, layer_type)
@@ -59,7 +61,6 @@ class GenericAutoEncoder():
 		for layer in self.layers[self.mid:] :
 			layer.weights = layer.weights.T
 			layer.biases, layer.inverse_biases = layer.inverse_biases, layer.biases		
-			#layer.activation_fct, layer.activation_inv_fct = layer.activation_inv_fct, layer.activation_fct
 			
 	def feedforward(self, data, dropout=None):
 		"""
@@ -94,7 +95,7 @@ class GenericAutoEncoder():
 		:returns: encoded data
 		"""
 		for layer in self.layers[:self.mid] :
-			if self.verbose: print "encoding,", layer.weights.shape
+			logger.info("encoding, {}".format(layer.weights.shape))
 			data = layer.feedforward(data)
 			
 		return data
@@ -107,7 +108,7 @@ class GenericAutoEncoder():
 		:returns: decoded data
 		"""
 		for layer in self.layers[self.mid:] :
-			if self.verbose: print "decoding,", layer.weights.shape
+			logger.info("decoding, {}".format(layer.weights.shape))
 			data = layer.feedforward(data)
 			
 		return data

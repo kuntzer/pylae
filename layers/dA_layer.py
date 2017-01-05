@@ -1,10 +1,14 @@
 import numpy as np
 import scipy.optimize
+from datetime import datetime
 
 import layer
 from .. import processing
 from .. import act 
 from .. import utils
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Layer(layer.AE_layer):
 	def __init__(self, hidden_nodes, activation, corruption, verbose=True):
@@ -104,9 +108,10 @@ class Layer(layer.AE_layer):
 		
 		self.inverse_biases = np.zeros(numdims)
 		self.biases = np.zeros(self.hidden_nodes)
+		time_start = datetime.now()
 	
 		###########################################################################################
-		options_ = {'maxiter': self.iterations, 'disp': self.verbose}
+		options_ = {'maxiter': self.iterations, 'disp': True}
 		# We overwrite these options with any user-specified kwargs:
 		options_.update(kwargs)
 
@@ -117,7 +122,13 @@ class Layer(layer.AE_layer):
 			if b_it * self.mini_batch < self.Ndata: b_it += 1
 
 		for i_it in range(b_it):
-			if self.verbose: print "Starting epoch {}/{}...".format(i_it+1, b_it)
+			
+			if b_it > 1:
+				time_itstart = datetime.now()
+				logger.info("Starting epoch {}/{}...".format(i_it+1, b_it))
+			else:
+				logger.info("Starting pre-training...")
+
 			theta = self._roll(self.weights, self.inverse_biases, self.biases)
 			
 			if self.mini_batch <= 0:
@@ -130,13 +141,21 @@ class Layer(layer.AE_layer):
 			J = lambda x: self.cost(x, batch, log_cost=True)
 					
 			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
-			opt_theta = result.x
 			
-			if self.verbose: print result	
-		
+			if len(result) == 9:
+				opt_theta = result.x
+				logger.info("Done with optimization, {0} iterations and {1} evaluations of the objective functions".format(result.nit, result.nfev))
+			else:
+				logger.warning("Optimization output is fishy")		
+			
 			###########################################################################################
 			# Unroll the state vector and saves it to self.	
 			self.weights, self.inverse_biases, self.biases = self._unroll(opt_theta)
 		
-
+			if b_it > 1:
+				now = datetime.now()
+				logger.info("Epoch {}/{} done in {}...".format(i_it+1, b_it, (now - time_itstart)))
 		
+			now = datetime.now()
+			logger.info("Pre-training of layer {} done in {}...".format(self.weights.shape, (now - time_start)))
+
