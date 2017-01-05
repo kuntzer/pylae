@@ -11,7 +11,7 @@ import utils_mnist
 N_train = 5000
 N_test = 1500
 
-images = utils_mnist.load_MNIST_images('mnist-data/train-images.idx3-ubyte')
+images = utils_mnist.load_MNIST_images('mnist-data/train-images-idx3-ubyte')
 images = images.T
 ids_train = range(N_train)
 ids_test = range(N_train, N_train+N_test)
@@ -20,7 +20,7 @@ images_train = images[ids_train]
 images_test = images[ids_test]
 
 # Preparing the SAE
-dA = pylae.dA.AutoEncoder("sae_mnist_fasttest", verbose=True)
+dA = pylae.dA.AutoEncoder("sae_mnist", verbose=True)
 
 architecture = [128, 64, 8]
 layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID"]
