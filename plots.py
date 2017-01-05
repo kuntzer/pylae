@@ -110,7 +110,6 @@ def display_network(ae, layer_number=0, outpath=None):
 	buf = 1
 	n = np.ceil(np.sqrt(col))
 	m = np.ceil(col / n)
-
 	image = np.ones(shape=(int(buf + m * (sz + buf)), int(buf + n * (sz + buf))))
 
 	if not opt_graycolor:

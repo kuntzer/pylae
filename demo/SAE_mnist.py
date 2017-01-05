@@ -33,7 +33,7 @@ iters = 20
 
 # Layer pre-training
 if do_pre_train:
-	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=10)
+	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=500)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
@@ -41,7 +41,7 @@ else:
 
 # Fine-tuning
 if do_train:
-	dA.fine_tune(images_train, iterations=iters, mini_batch=10, cost_fct=cost_fct)
+	dA.fine_tune(images_train, iterations=iters, mini_batch=0, cost_fct=cost_fct)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
@@ -51,6 +51,8 @@ dA.verbose = True
 
 pylae.plots.display_train_history(dA)
 pylae.plots.display_network(dA, 0)
+#pylae.plots.display_network(dA, 1)
+#pylae.plots.display_network(dA, 2)
 
 # Let's encode and decode the test image to see the result:
 images_sae = dA.decode(dA.encode(images_test))

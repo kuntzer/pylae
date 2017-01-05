@@ -26,23 +26,17 @@ class Layer(layer.AE_layer):
 		self.activation_fct = eval("act.{}".format(self.activation_name.lower()))
 	
 	def cost(self, theta, data, log_cost=False):
-
-		if self.mini_batch <= 0:
-			batch = data
-		else:
-			ids_batch = utils.select_mini_batch(self)
-			batch = data[ids_batch]
-
-		m = batch.shape[1]
 		
+		m = data.shape[1]
+
 		# Unroll theta
 		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
 
 		# Forward passes
 		if not self.corruption is None:
-			cdata = processing.corrupt(self, batch, self.corruption)
+			cdata = processing.corrupt(self, data, self.corruption)
 		else:
-			cdata = batch
+			cdata = data
 			
 		h = self.round_feedforward(cdata)
 		hn = self.output
@@ -51,18 +45,18 @@ class Layer(layer.AE_layer):
 		# http://neuralnetworksanddeeplearning.com/chap3.html for details
 		
 		# First: bottom to top
-		dEda = h - batch
+		dEda = h - data
 		dEdvb = np.mean(dEda, axis=0)
 
 		# Second: top to bottom
 		dEda = (dEda).dot(self.weights) * (hn * (1. - hn))
 		dEdhb = np.mean(dEda, axis=0)
 		
-		dEdw = ((dEda.T).dot(batch).T + self.regularisation * self.weights) / m
+		dEdw = ((dEda.T).dot(data).T + self.regularisation * self.weights) / m
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 
 		# Computes the cross-entropy
-		cost = utils.cross_entropy(batch, h)
+		cost = utils.cross_entropy(data, h)
 		
 		if log_cost:
 			self.train_history.append(cost)
@@ -110,25 +104,39 @@ class Layer(layer.AE_layer):
 		
 		self.inverse_biases = np.zeros(numdims)
 		self.biases = np.zeros(self.hidden_nodes)
-		theta = self._roll(self.weights, self.inverse_biases, self.biases)
 	
-		#data = data.T
-		
 		###########################################################################################
-		# Optimisation of the weights and biases according to the cost function
-		J = lambda x: self.cost(x, data, log_cost=True)
-
-		myfactr = 0
-		options_ = {'maxiter': self.iterations, 'disp': self.verbose, 'ftol' : myfactr * np.finfo(float).eps}
+		options_ = {'maxiter': self.iterations, 'disp': self.verbose}
 		# We overwrite these options with any user-specified kwargs:
 		options_.update(kwargs)
+
+		if self.mini_batch <= 0:
+			b_it = 1
+		else:
+			b_it = self.Ndata / self.mini_batch
+			if b_it * self.mini_batch < self.Ndata: b_it += 1
+
+		for i_it in range(b_it):
+			if self.verbose: print "Starting epoch {}/{}...".format(i_it+1, b_it)
+			theta = self._roll(self.weights, self.inverse_biases, self.biases)
+			
+			if self.mini_batch <= 0:
+				batch = data
+			else:
+				ids_batch = utils.select_mini_batch(self)
+				batch = data[ids_batch]
+				
+			# Optimisation of the weights and biases according to the cost function
+			J = lambda x: self.cost(x, batch, log_cost=True)
+					
+			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
+			opt_theta = result.x
+			
+			if self.verbose: print result	
 		
-		result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
-		opt_theta = result.x
+			###########################################################################################
+			# Unroll the state vector and saves it to self.	
+			self.weights, self.inverse_biases, self.biases = self._unroll(opt_theta)
 		
-		###########################################################################################
-		# Unroll the state vector and saves it to self.	
-		self.weights, self.inverse_biases, self.biases = self._unroll(opt_theta)
-		
-		if self.verbose: print result	
+
 		

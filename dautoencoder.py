@@ -38,6 +38,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			data = layer.feedforward(data)
 	
 			layers.append(layer)
+			#raise RuntimeError("Stopping heer")
 			
 		
 		self.is_pretrained = True
@@ -66,49 +67,60 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		###########################################################################################
 		# Initialisation of the weights and bias
 		
-		# Copy the weights and biases into a state vector theta
-		weights = []
-		biases = []
-		for jj in range(self.mid * 2):
-			weights.append(copy.copy(self.layers[jj].weights))
-			biases.append(self.layers[jj].biases) 
-			
-		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
-		del weights, biases
 		
 		###########################################################################################
 		# Saving some stuff
 		self.regularisation = regularisation
 		self.mini_batch = mini_batch
-		self.weights_shape = weights_shape
-		self.biases_shape = biases_shape
-		self.indices = indices
 		self.Ndata = self.layers[0].Ndata 
 
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
 		# under the constraint of regularisation and sparsity given by the user 
-		if cost_fct == 'cross-entropy':
-			J = lambda x: self.xcross_cost(x, data, corruption)
-		else:
-			raise NotImplemented()
-		
 		options_ = {'maxiter': iterations, 'disp': verbose}
 		# We overwrite these options with any user-specified kwargs:
 		options_.update(kwargs)
-		result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
-		opt_theta = result.x
 		
-		###########################################################################################
-		# Unroll the state vector and saves it to self.	
-		for jj in range(self.mid * 2):
+		if self.mini_batch <= 0:
+			b_it = 1
+		else:
+			b_it = self.Ndata / self.mini_batch
+			if b_it * self.mini_batch < self.Ndata: b_it += 1
+
+		for i_it in range(b_it):
+			if self.verbose: print "** Starting epoch {}/{}... **".format(i_it+1, b_it)
+			# Copy the weights and biases into a state vector theta
+			weights = []
+			biases = []
+			for jj in range(self.mid * 2):
+				weights.append(copy.copy(self.layers[jj].weights))
+				biases.append(self.layers[jj].biases) 
 				
-			w, b = self._unroll(opt_theta, jj, indices, weights_shape, biases_shape)
+			theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
+			del weights, biases
 			
-			self.layers[jj].weights = w
-			self.layers[jj].biases = b
+			self.weights_shape = weights_shape
+			self.biases_shape = biases_shape
+			self.indices = indices
+			
+			if cost_fct == 'cross-entropy':
+				J = lambda x: self.xcross_cost(x, data, corruption)
+			else:
+				raise NotImplemented()
+			
+			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
+			opt_theta = result.x
 		
-		if verbose: print result
+			###########################################################################################
+			# Unroll the state vector and saves it to self.	
+			for jj in range(self.mid * 2):
+					
+				w, b = self._unroll(opt_theta, jj, indices, weights_shape, biases_shape)
+				
+				self.layers[jj].weights = w
+				self.layers[jj].biases = b
+			
+			if verbose: print result
 		
 		# We're done !
 		self.is_trained = True
@@ -121,14 +133,8 @@ class AutoEncoder(classae.GenericAutoEncoder):
 
 			self.layers[jj].weights = w
 			self.layers[jj].biases = b
-	
-		# Number of training examples
-		if self.mini_batch <= 0:
-			batch = data
-		else:
-			ids_batch = u.select_mini_batch(self)
-			batch = data[ids_batch]
 
+		batch = data
 		m = batch.shape[1]
 
 		# Forward pass

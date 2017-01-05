@@ -141,7 +141,7 @@ def select_mini_batch(cl):
 		new_epoch(cl)
 	
 		if cl.verbose: 
-			print "A new epoch has started"
+			print "A new epoch has started..."
 			
 	if np.sum(cl.mini_batch_ids) < cl.mini_batch:
 		b = int(cl.mini_batch_ids.sum())
@@ -150,7 +150,7 @@ def select_mini_batch(cl):
 
 	aids = np.where(cl.mini_batch_ids == 1)[0]
 	avail_ids = np.arange(cl.Ndata)[aids]
-	ids_batch = np.random.choice(avail_ids, b, replace=False)
+	ids_batch = avail_ids[:b]#np.random.choice(avail_ids, b, replace=False)
 	
 	cl.mini_batch_ids[ids_batch] = 0
 
