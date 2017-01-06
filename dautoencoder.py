@@ -106,8 +106,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			# Selecting the cost function ##########################################################
 			if cost_fct == 'cross-entropy':
 				J = lambda x: self.xentropy_cost(x, data, corruption)
-			else:
+			elif cost_fct == 'L2':
 				J = lambda x: self.l2_cost(x, data, corruption)
+			else:
+				raise ValueError("Cost function {} unknown".format(cost_fct))
 			########################################################################################
 			
 			# Optimising now #######################################################################
@@ -115,7 +117,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 						
 			if len(result) == 9:
 				opt_theta = result.x
-				logger.info("Done with optimization, {0} iterations and {1} evaluations of the objective functions".format(result.nit, result.nfev))
+				logger.info("Done with optimization, {0} iterations and {1} evaluations of the objective function.".format(result.nit, result.nfev))
 			else:
 				logger.warning("Optimization output is fishy")	
 			########################################################################################

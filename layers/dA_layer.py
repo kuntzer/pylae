@@ -189,7 +189,7 @@ class Layer(layer.AE_layer):
 			elif cost_fct == 'L2':
 				J = lambda x: self.l2_cost(x, batch)
 			else:
-				raise NotImplemented()
+				raise ValueError("Cost function {} unknown".format(cost_fct))
 			########################################################################################
 					
 			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)

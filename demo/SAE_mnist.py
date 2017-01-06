@@ -31,13 +31,13 @@ layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID"]
 cost_fct = 'cross-entropy'
 
 # Define what training we should do
-do_pre_train = True
+do_pre_train = False
 do_train = True
 iters = 20
 
 # Layer pre-training
 if do_pre_train:
-	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=0, cost_fct=cost_fct)
+	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=500, cost_fct=cost_fct)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
@@ -45,7 +45,7 @@ else:
 
 # Fine-tuning
 if do_train:
-	dA.fine_tune(images_train, iterations=iters, mini_batch=0, cost_fct=cost_fct)
+	dA.fine_tune(images_train, iterations=iters, mini_batch=500, cost_fct=cost_fct)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))

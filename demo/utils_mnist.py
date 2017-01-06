@@ -1,4 +1,4 @@
-# Largely inspired from https://github.com/jatinshah/ufldl_tutorial
+# Partly inspired from https://github.com/jatinshah/ufldl_tutorial
 
 import numpy as np
 import urllib
