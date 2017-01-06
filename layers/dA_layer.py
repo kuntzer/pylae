@@ -41,15 +41,17 @@ class Layer(layer.AE_layer):
 			cdata = processing.corrupt(self, data, self.corruption)
 		else:
 			cdata = data
-			
-		h = self.round_feedforward(cdata)
+		
+		ch = self.round_feedforward(cdata)
+		#if not self.corruption is None:
+		#	h = self.feedforward(data)
 		hn = self.output
 			
 		# Compute the gradients:
 		# http://neuralnetworksanddeeplearning.com/chap3.html for details
 		
 		# First: bottom to top
-		dEda = h - data
+		dEda = ch - data
 		dEdvb = np.mean(dEda, axis=0)
 
 		# Second: top to bottom
@@ -60,12 +62,10 @@ class Layer(layer.AE_layer):
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 
 		# Computes the cross-entropy
-		cost = utils.cross_entropy(data, h)
-		
-		self.train_history.append(cost)
+		self.current_cost_value = utils.cross_entropy(data, ch)
 		
 		# Returns the gradient as a vector.
-		return cost, grad
+		return self.current_cost_value, grad
 	
 	def l2_cost(self, theta, data):
 		"""
@@ -106,12 +106,19 @@ class Layer(layer.AE_layer):
 
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 		
-		cost = np.sum((h - data) ** 2) / (2 * m) + ((self.regularisation / 2) * np.abs(self.weights)**2).sum()
+		self.current_cost_value = np.sum((h - data) ** 2) / (2 * m) + ((self.regularisation / 2) * np.abs(self.weights)**2).sum()
 					
-		self.train_history.append(cost)
+		
 		
 		# Returns the gradient as a vector.
-		return cost, grad
+		return self.current_cost_value, grad
+	
+	def _log(self, *args, **kwargs):
+		"""
+		Used as a callback function for the minization algorithm
+		"""
+		self.train_history.append(self.current_cost_value)
+		
 	
 	def train(self, data, iterations,  cost_fct, mini_batch=0, regularisation=0, method='L-BFGS-B', weight=0.1, **kwargs):
 		"""
@@ -192,7 +199,7 @@ class Layer(layer.AE_layer):
 				raise ValueError("Cost function {} unknown".format(cost_fct))
 			########################################################################################
 					
-			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
+			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_, callback=self._log)
 			
 			if len(result) == 9:
 				opt_theta = result.x

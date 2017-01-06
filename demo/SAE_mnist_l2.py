@@ -24,16 +24,16 @@ images_train = images[ids_train]
 images_test = images[ids_test]
 
 # Preparing the SAE
-dA = pylae.dA.AutoEncoder("sae_mnist")
+dA = pylae.dA.AutoEncoder("sae_mnist_l2")
 
-architecture = [128, 64, 8]
-layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID"]
-cost_fct = 'cross-entropy'
+architecture = [128]#, 64, 8]
+layers_activation = ["SIGMOID"]#, "SIGMOID", "LINEAR"]
+cost_fct = 'L2'
 
 # Define what training we should do
 do_pre_train = True
 do_train = True
-iters = 5000
+iters = 20
 
 # Layer pre-training
 if do_pre_train:

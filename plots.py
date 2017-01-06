@@ -86,7 +86,6 @@ def display_train_history(self):
 	
 	for jj in range(self.mid):
 		plt.plot(self.layers[jj].train_history, label="Layer %d" % jj, lw=2)
-	
 	plt.plot(self.train_history, lw=2, label="Fine-tune")
 	plt.legend(loc='best')
 	

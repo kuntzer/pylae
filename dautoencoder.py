@@ -113,7 +113,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			########################################################################################
 			
 			# Optimising now #######################################################################
-			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_)
+			result = scipy.optimize.minimize(J, theta, method=method, jac=True, options=options_, callback=self._log)
 						
 			if len(result) == 9:
 				opt_theta = result.x
@@ -155,11 +155,13 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		# Forward pass
 		if corruption is not None:
 			cdata = processing.corrupt(self, data, corruption)
-			raise NotImplemented("add h = self.feedforward(cdata) and correct algo")
+			ch = self.feedforward(cdata)
 		else:
 			cdata = data
 		
-		h = self.feedforward(data)
+		h = self.feedforward(cdata)
+		if corruption is None:
+			ch = h
 
 		wgrad = []
 		bgrad = []
@@ -177,7 +179,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			
 			# If last layer, we compute the delta = output - expectation
 			if dEda is None: 
-				dEda = h - data
+				dEda = ch - data
 				dEda = dEda.T
 			else:
 				if corruption is None:
@@ -199,13 +201,11 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		bgrad = bgrad[::-1]
 
 		# Computes the cross-entropy
-		cost = u.cross_entropy(data, h)
+		self.current_cost_value = u.cross_entropy(data, ch)
 
-		self.train_history.append(cost)
-		
 		# Returns the gradient as a vector.
 		grad = self._roll(wgrad, bgrad, return_info=False)
-		return cost, grad
+		return self.current_cost_value, grad
 	
 	def l2_cost(self, theta, data, corruption):
 
@@ -245,10 +245,9 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			
 			delta *= self.layers[jj].activation_fct_prime(self.layers[jj].activation)
 			
-			#dEdw = ((dEda.T).dot(data).T + self.regularisation * self.weights) / m
-			#grad_w = delta.dot(self.layers[jj].input) / m + self.regularisation * self.layers[jj].weights
 			grad_w = (((self.layers[jj].input.T).dot(delta)) + self.regularisation * self.layers[jj].weights )/ m
 			grad_b = np.mean(delta, axis=0)
+
 			wgrad.append(grad_w)
 			bgrad.append(grad_b)
 				
@@ -257,12 +256,17 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		bgrad = bgrad[::-1]
 		
 		# Computes the L2 norm + regularisation
-		cost = np.sum((h - data) ** 2) / (2 * m) + (self.regularisation / 2) * \
+		self.current_cost_value = np.sum((h - data) ** 2) / (2 * m) + (self.regularisation / 2) * \
 			(sum([((self.layers[jj].weights)**2).sum() for jj in range(self.mid * 2)]))
-		
-		self.train_history.append(cost)
 		
 		# Returns the gradient as a vector.
 		grad = self._roll(wgrad, bgrad, return_info=False)
-		return cost, grad
+		return self.current_cost_value, grad
+	
+	def _log(self, *args, **kwargs):
+		"""
+		Used as a callback function for the minization algorithm
+		"""
+		self.train_history.append(self.current_cost_value)
+		
 	
