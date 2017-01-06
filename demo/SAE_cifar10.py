@@ -3,41 +3,39 @@ from sklearn.decomposition import PCA
 import sklearn.metrics as metrics
 import numpy as np
 import os
+import logging
 
 import pylae
-import utils_mnist
-
-import logging
+import utils_cifar10 as u
 
 logging.basicConfig(format='PID %(process)06d | %(asctime)s | %(levelname)s: %(name)s(%(funcName)s): %(message)s',level=logging.INFO)
 
 # Loading the data and pre-processing
-N_train = 50000
-N_test = 1500
+N_train = 5000
+N_test = 1000
 
-images = utils_mnist.load_MNIST_images('mnist-data/train-images-idx3-ubyte')
-images = images.T
-ids_train = range(N_train)
-ids_test = range(N_train, N_train+N_test)
+images = u.load_images("cifar-10-batches-py", N_train+N_test)
 
-images_train = images[ids_train]
-images_test = images[ids_test]
+images_train = images[:N_train]
+images_test = images[N_train:N_train+N_test]
 
 # Preparing the SAE
-dA = pylae.dA.AutoEncoder("sae_mnist")
+dA = pylae.dA.AutoEncoder("sae_cifar")
 
-architecture = [128, 64, 8]
-layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID"]
-cost_fct = 'cross-entropy'
+architecture = [128]#[512, 64]
+layers_activation = ["SIGMOID"]#, "LINEAR"]
+cost_fct = 'L2'
 
 # Define what training we should do
-do_pre_train = True
+do_pre_train = False
 do_train = True
 iters = 5000
 
+corruption = None
+
 # Layer pre-training
 if do_pre_train:
-	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=0, cost_fct=cost_fct)
+	dA.pre_train(images_train, architecture, layers_activation, iterations=iters, mini_batch=0, cost_fct=cost_fct, corruption=corruption)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
@@ -45,7 +43,7 @@ else:
 
 # Fine-tuning
 if do_train:
-	dA.fine_tune(images_train, iterations=iters, mini_batch=0, cost_fct=cost_fct)
+	dA.fine_tune(images_train, iterations=iters, mini_batch=0, cost_fct=cost_fct, corruption=corruption)
 	dA.save()
 else:
 	dA = pylae.utils.readpickle(os.path.join(dA.filepath, 'ae.pkl'))
@@ -115,3 +113,4 @@ for ii in np.random.choice(range(N_test), size=10, replace=False):
 	plt.title("PCA residues")
 
 plt.show()
+
