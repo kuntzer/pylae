@@ -62,7 +62,7 @@ class GenericAutoEncoder():
 			layer.weights = layer.weights.T
 			layer.biases, layer.inverse_biases = layer.inverse_biases, layer.biases		
 			
-	def feedforward(self, data, dropout=None):
+	def feedforward(self, data):
 		"""
 		Encodes and decodes the data using the full auto-encoder
 		:param data: The data in the same format than the training data
@@ -70,11 +70,11 @@ class GenericAutoEncoder():
 		:returns: the fed-forward data
 		"""
 		for layer in self.layers :
-			data = layer.feedforward_memory(data, dropout=dropout)
+			data = layer.feedforward_memory(data)
 
 		return data
 	
-	def feedforward_to_layer(self, data, j, dropout=None):
+	def feedforward_to_layer(self, data, j):
 		"""
 		Encodes and decodes the data using the full autoencoder
 		:param data: The data in the same format than the training data
@@ -83,7 +83,7 @@ class GenericAutoEncoder():
 		:returns: the fed-forward data
 		"""
 		for layer in self.layers[:j+1] :
-			data = layer.feedforward(data, dropout=dropout)
+			data = layer.feedforward(data)
 
 		return data
 		

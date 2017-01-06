@@ -30,16 +30,10 @@ class AE_layer():
 		m_output = self.activation_fct(activation)
 		return m_output
 
-	def round_feedforward(self, data, return_activation=False, dropout=None, return_hidden=False):
-		hidden_data = self.feedforward_memory(data, dropout=dropout)
+	def round_feedforward(self, data, return_activation=False, return_hidden=False):
+		hidden_data = self.feedforward_memory(data)
 		activation = self.compute_inverse(hidden_data)
 		m_output = self.activate(activation)
-			
-		#if dropout is not None:
-			#print 'dropout!'
-			#dropouts = np.random.binomial(1, dropout, size=m_output.shape) * (1. / (1. - dropout))
-			#m_output *= dropouts
-			#activation *= dropouts
 			
 		if return_activation and return_hidden:
 			return m_output, activation, hidden_data
@@ -50,7 +44,7 @@ class AE_layer():
 		
 		return m_output
 		
-	def feedforward(self, data, mem=False, debug=False, dropout=None):	
+	def feedforward(self, data, mem=False, debug=False):	
 		m_input = data 
 		if debug:
 			print np.shape(m_input), '< data'
@@ -62,18 +56,11 @@ class AE_layer():
 		
 		m_output = self.activate(activation)
 
-		if dropout is not None:
-			print 'dropout!'
-			raise ValueError("Should be checked before use!")
-			dropouts = np.random.binomial(1, 1.-dropout, size=m_output.shape) * (1. / (1. - dropout))
-			m_output *= dropouts
-			activation *= dropouts
-
 		if mem: self.activation = activation
 		return m_output
 	
-	def feedforward_memory(self, data, dropout=None):
-		m_output = self.feedforward(data, mem = True, dropout=dropout)
+	def feedforward_memory(self, data):
+		m_output = self.feedforward(data, mem=True)
 		self.output = m_output
 		self.input = data
 		
