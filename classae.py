@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class GenericAutoEncoder():
 	
-	def __init__(self, name='ae', layer_type="dA", directory=''):
+	def __init__(self, name='ae', layer_type="dA", directory='', debug=False):
 		self.name = name
 		self.is_pretrained = False
 		self.is_trained = False
@@ -19,6 +19,7 @@ class GenericAutoEncoder():
 			os.makedirs(self.filepath)
 		self.directory = directory
 		self.train_history = []
+		self.debug = debug
 		
 	def info(self):
 		"""

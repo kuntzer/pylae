@@ -12,7 +12,7 @@ import logging
 logging.basicConfig(format='PID %(process)06d | %(asctime)s | %(levelname)s: %(name)s(%(funcName)s): %(message)s',level=logging.INFO)
 
 # Loading the data and pre-processing
-N_train = 50000
+N_train = 5000
 N_test = 1500
 
 images = utils_mnist.load_MNIST_images('mnist-data/train-images-idx3-ubyte')
@@ -24,16 +24,16 @@ images_train = images[ids_train]
 images_test = images[ids_test]
 
 # Preparing the SAE
-dA = pylae.dA.AutoEncoder("sae_mnist")
+dA = pylae.dA.AutoEncoder("sae_mnist_single")
 
-architecture = [128, 64, 8]
-layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID"]
+architecture = [8]#128, 64, 8]
+layers_activation = ["SIGMOID"]#, "SIGMOID", "SIGMOID"]
 cost_fct = 'cross-entropy'
 
 # Define what training we should do
-do_pre_train = True
-do_train = True
-iters = 5000
+do_pre_train = False
+do_train = False
+iters = 500
 
 # Layer pre-training
 if do_pre_train:
@@ -87,6 +87,10 @@ logging.info('** explained variance **')
 logging.info('AE cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_sae)))
 logging.info('PCA cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_pca)))
 
+logging.info('** Residues **')
+logging.info('AE cost: {:1.2f}'.format(np.abs(images_test - images_sae).mean()))
+logging.info('PCA cost: {:1.2f}'.format(np.abs(images_test - images_pca).mean()))
+
 # Now show the reconstructed images
 size = int(np.sqrt(np.shape(images_test)[1]))
 # Show the original image, the reconstruction and the residues for the first 10 cases
@@ -96,22 +100,23 @@ for ii in np.random.choice(range(N_test), size=10, replace=False):
 	recont = images_pca[ii].reshape(size,size)
 
 	plt.figure(figsize=(9,6))
+	opts = {"vmin":0., "vmax":1., "cmap":"Greys"}
 	
 	plt.subplot(2, 3, 1)
-	plt.imshow((img), interpolation="nearest")
+	plt.imshow((img), interpolation="nearest", **opts)
 	
 	plt.subplot(2, 3, 2)
-	plt.title("Gradient Desc.")
-	plt.imshow((recon), interpolation="nearest")
+	plt.title("AE")
+	plt.imshow((recon), interpolation="nearest", **opts)
 	plt.subplot(2, 3, 3)
-	plt.imshow((img - recon), interpolation="nearest")
-	plt.title("Gradient Desc. residues")
+	plt.imshow(np.abs(img - recon), interpolation="nearest", **opts)
+	plt.title("AE residues")
 		
 	plt.subplot(2, 3, 5)
-	plt.imshow((recont), interpolation="nearest")
+	plt.imshow((recont), interpolation="nearest", **opts)
 	plt.title("PCA")
 	plt.subplot(2, 3, 6)
-	plt.imshow((img - recont), interpolation="nearest")
+	plt.imshow(np.abs(img - recont), interpolation="nearest", **opts)
 	plt.title("PCA residues")
 
 plt.show()

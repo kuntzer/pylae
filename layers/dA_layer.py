@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Layer(layer.AE_layer):
-	def __init__(self, hidden_nodes, activation, corruption):
+	def __init__(self, hidden_nodes, activation, corruption, debug):
 		"""
 		:param hidden_nodes: Number of neurons in layer
 		:param activation: Activation function for the layer
@@ -20,18 +20,26 @@ class Layer(layer.AE_layer):
 			reached to probe the rmsd behaviour. 
 		:param early_stop: if True, stops the iterations when there is no improvements anymore, 
 			makes probes the `max_epoch_without_improvement` following iterations before stopping.
+		:param debug: make a slow but useful gradient checking operations.
 		"""
 		self.hidden_nodes = hidden_nodes
 		self.activation_name = activation
 		self.train_history = []
 		self.corruption = corruption
+		self.debug = debug
+		self.it = 0
 		
 		self.activation_fct = eval("act.{}".format(self.activation_name.lower()))
 		self.activation_fct_prime = eval("act.{}_prime".format(self.activation_name.lower()))
-	
-	def xentropy_cost(self, theta, data):
 		
-		m = data.shape[1]
+	def xentropy_cost(self, theta, data):
+		"""
+		Computes the L2 cost and gradient
+		http://neuralnetworksanddeeplearning.com/chap3.html for details
+		"""
+		
+		m, Npix = data.shape
+		Npix, m = data.shape
 
 		# Unroll theta
 		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
@@ -62,23 +70,49 @@ class Layer(layer.AE_layer):
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 
 		# Computes the cross-entropy
-		self.current_cost_value = utils.cross_entropy(data, ch)
+		self.current_cost_value = utils.cross_entropy(data, ch) / Npix
+		
+
+		if self.debug and self.it > 2:
+			epsilon = 1e-4
+			
+			print "-id-|--grad---|num-grad-|-delta-|-mult--|status"
+			print "----|---------|---------|-------|-------|------"
+			
+			debug_res = True
+			for i in range(np.size(theta)):
+				basis_vectors = np.zeros_like(theta)
+				basis_vectors[i] = 1
+				tetha_p = theta + epsilon * basis_vectors
+				tetha_m = theta - epsilon * basis_vectors
+				
+				self.weights, self.inverse_biases, self.biases = self._unroll(tetha_p)
+				h = self.round_feedforward(data)
+				cost_p = utils.cross_entropy(data, h) / Npix
+				
+				self.weights, self.inverse_biases, self.biases = self._unroll(tetha_m)
+				h = self.round_feedforward(data)
+				cost_m = utils.cross_entropy(data, h) / Npix
+				
+				num_grad = 0.5 * (cost_p - cost_m) / epsilon
+				
+				status = np.abs(num_grad - grad[i]) < epsilon
+				
+				if not status:
+					debug_res = False
+				print "{0:04d}|{1:+0.6f}|{2:+0.6f}|{3:0.5f}|{4:0.5f}|{5}".format(i, grad[i], num_grad, np.abs(num_grad - grad[i]), num_grad / grad[i], status)
+			
+			print 'Final status of debug:', debug_res
 		
 		# Returns the gradient as a vector.
 		return self.current_cost_value, grad
 	
 	def l2_cost(self, theta, data):
-		"""
-		Computes the L2 cost and gradient
-		http://neuralnetworksanddeeplearning.com/chap3.html for details
-		"""
 
-		m = data.shape[1]
-			
+		m, Npix = data.shape
 
 		# Unroll theta
 		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
-
 		# Forward passes
 		
 		if self.corruption is not None:
@@ -91,24 +125,74 @@ class Layer(layer.AE_layer):
 		if self.corruption is None:
 			ch = h
 			
+		# Slow but right way
+		"""
+		prime_last = self.activation_fct_prime(activation_last)
+		prime = self.activation_fct_prime(self.activation)
+		for i in range(m):
+			deltal = -(cdata[i] - cdata[i]) * prime_last[i]
+			
+			print deltal.shape
+			exit()
+		
+		deltal = (ch - data) * prime
+		dEdvb = np.mean(deltal, axis=0)
+		
+
+		deltal = np.dot(deltal, self.weights) * prime
+		dEdhb = np.mean(deltal, axis=0)
+		
+		dEdw = (data.T.dot(deltal)) / m + self.regularisation * self.weights
+		grad = self._roll(dEdw, dEdvb, dEdhb)
+		
+		
+		self.current_cost_value = np.sum((h - data) ** 2) / (2 * m) + ((self.regularisation / 2) * np.abs(self.weights)**2).sum()
+		self.current_cost_value /= Npix
+		"""	
 		# Back-propagation
 		prime = self.activation_fct_prime(activation_last)
-		deltaL = (ch - data) * prime
-		dEdvb = np.mean(deltaL, axis=0)
+		deltal = (ch - data) * prime
+		dEdvb = np.mean(deltal, axis=0)
 		
 		prime = self.activation_fct_prime(self.activation)
+		deltal = np.dot(deltal, self.weights) * prime
+		dEdhb = np.mean(deltal, axis=0)
 		
-		deltal = np.multiply((np.dot(deltaL, self.weights)), prime)
-		deltal = np.array(deltal)
-		dEdhb = np.mean(deltal, axis=0) 
-		
-		dEdw = (((deltal.T).dot(data)).T + self.regularisation * self.weights) / m
-
+		dEdw = (ch.T.dot(deltal)) / m + self.regularisation * self.weights
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 		
 		self.current_cost_value = np.sum((h - data) ** 2) / (2 * m) + ((self.regularisation / 2) * np.abs(self.weights)**2).sum()
-					
-		
+
+		if self.debug and self.it > 2:
+			epsilon = 1e-4
+			
+			print "-id-|--grad---|num-grad-|-delta-|-mult--|status"
+			print "----|---------|---------|-------|-------|------"
+			
+			debug_res = True
+			for i in range(np.size(theta)):
+				basis_vectors = np.zeros_like(theta)
+				basis_vectors[i] = 1
+				tetha_p = theta + epsilon * basis_vectors
+				tetha_m = theta - epsilon * basis_vectors
+				
+				self.weights, self.inverse_biases, self.biases = self._unroll(tetha_p)
+				h = self.round_feedforward(data)
+				cost_p = np.sum((h - data) ** 2) / (2 * m)
+				
+				self.weights, self.inverse_biases, self.biases = self._unroll(tetha_m)
+				h = self.round_feedforward(data)
+				cost_m = np.sum((h - data) ** 2) / (2 * m)
+				
+				num_grad = 0.5 * (cost_p - cost_m) / epsilon
+				
+				status = np.abs(num_grad - grad[i]) < epsilon
+				
+				if not status:
+					debug_res = False
+				print "{0:04d}|{1:+0.6f}|{2:+0.6f}|{3:0.5f}|{4:0.5f}|{5}".format(i, grad[i], num_grad, np.abs(num_grad - grad[i]), num_grad / grad[i], status)
+			
+			print 'Final status of debug:', debug_res
 		
 		# Returns the gradient as a vector.
 		return self.current_cost_value, grad
@@ -118,6 +202,46 @@ class Layer(layer.AE_layer):
 		Used as a callback function for the minization algorithm
 		"""
 		self.train_history.append(self.current_cost_value)
+		self.it += 1
+		
+	def gd(self, data, iterations, cost_fct, learning_rate=0.1, regularisation=0, **kwargs):
+		"""
+		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
+		
+		:param data: The data to be used
+		:param iterations: the number of iterations
+		:param cost_fct: what cost function to use
+		:param mini_batch: number of samples to use per batch
+		:param regularisation: the multipler of the L2 regularisation
+		:param method: which method of `scipy.optimize.minimize` to use
+		:pram weights: the standard deviation of the zero-centred weights (biases are initialised to 0)
+		
+		all remaining `kwargs` are passed to `scipy.optimize.minimize`.
+		"""
+		
+		self.Ndata, numdims = np.shape(data)
+		
+		time_start = datetime.now()
+
+		for it in range(self.iterations):
+			theta = self._roll(self.weights, self.inverse_biases, self.biases)
+			# Selecting the cost function ##########################################################
+			if cost_fct == 'cross-entropy':
+				cost, grad = self.xentropy_cost(theta, data)
+			elif cost_fct == 'L2':
+				cost, grad = self.l2_cost(theta, data)
+			else:
+				raise ValueError("Cost function {} unknown".format(cost_fct))
+			########################################################################################
+			logger.info("{}it: {:0.6f}".format(it, cost))
+			dweights, dinverse_biases, dbiases = self._unroll(grad)
+			self.weights -= dweights * learning_rate
+			self.inverse_biases -= dinverse_biases * learning_rate
+			self.biases -= dbiases * learning_rate
+			theta = self._roll(self.weights, self.inverse_biases, self.biases)
+			self._log()
+		now = datetime.now()
+		logger.info("Pre-training of layer {} done in {}...".format(self.weights.shape, (now - time_start)))
 		
 	
 	def train(self, data, iterations,  cost_fct, mini_batch=0, regularisation=0, method='L-BFGS-B', weight=0.1, **kwargs):
@@ -161,7 +285,13 @@ class Layer(layer.AE_layer):
 		
 		self.inverse_biases = np.zeros(numdims)
 		self.biases = np.zeros(self.hidden_nodes)
+		
 		time_start = datetime.now()
+		
+		if method == "gd":
+			# This is a bit special. It is mostly for debug purposes.
+			self.gd(data, iterations, cost_fct, regularisation=regularisation, **kwargs)
+			return
 	
 		###########################################################################################
 		options_ = {'maxiter': self.iterations, 'disp': True}

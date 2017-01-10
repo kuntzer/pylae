@@ -32,7 +32,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			else:
 				corruption_lvl = corruption
 				
-			layer = network.Layer(architecture[ii], layers_activations[ii], corruption_lvl)
+			layer = network.Layer(architecture[ii], layers_activations[ii], corruption_lvl, debug=self.debug)
 			layer.regularisation = regularisation
 			layer.train(data, mini_batch=mini_batch, iterations=iterations, **kwargs)
 			logger.info("Finished with pre-training layer {} ({}/{})...".format(layer.weights.shape, ii + 1, len(architecture)))
@@ -44,6 +44,59 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		self.is_pretrained = True
 		self.set_autoencoder(layers)
 		logger.info("Finished with pre-training...")
+		
+	def gd(self, data, iterations, cost_fct, learning_rate=0.1, regularisation=0, corruption=None, **kwargs):
+		"""
+		Pre-training of a dA layer with cross-entropy (hard coded -- at least for now)
+		
+		:param data: The data to be used
+		:param iterations: the number of iterations
+		:param cost_fct: what cost function to use
+		:param mini_batch: number of samples to use per batch
+		:param regularisation: the multipler of the L2 regularisation
+		:param method: which method of `scipy.optimize.minimize` to use
+		:pram weights: the standard deviation of the zero-centred weights (biases are initialised to 0)
+		
+		all remaining `kwargs` are passed to `scipy.optimize.minimize`.
+		"""
+		for it in range(iterations):
+			# Copy the weights and biases into a state vector theta ################################
+			weights = []
+			biases = []
+			for jj in range(self.mid * 2):
+				weights.append(copy.copy(self.layers[jj].weights))
+				biases.append(self.layers[jj].biases) 
+				
+			theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
+			
+			# Selecting the cost function ##########################################################
+			if cost_fct == 'cross-entropy':
+				cost, grad = self.xentropy_cost(theta, data, corruption=corruption)
+			elif cost_fct == 'L2':
+				cost, grad = self.l2_cost(theta, data, corruption=corruption)
+			else:
+				raise ValueError("Cost function {} unknown".format(cost_fct))
+			########################################################################################
+			
+			logger.info("{}it: {:0.6f}".format(it, cost))
+
+			# Unroll the state vector and saves it to self #########################################	
+			for jj in range(self.mid * 2):
+					
+				w, b = self._unroll(grad, jj, indices, weights_shape, biases_shape)
+				
+				self.layers[jj].weights -= learning_rate * w
+				self.layers[jj].biases -= learning_rate * b
+			# Copy the weights and biases into a state vector theta ################################
+			weights = []
+			biases = []
+			for jj in range(self.mid * 2):
+				weights.append(copy.copy(self.layers[jj].weights))
+				biases.append(self.layers[jj].biases) 
+				
+			theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
+			self._log()
+		return
 		
 	def fine_tune(self, data, iterations, cost_fct, regularisation=0.0, mini_batch=0, 
 					method='L-BFGS-B', corruption=None, **kwargs):
@@ -66,6 +119,22 @@ class AutoEncoder(classae.GenericAutoEncoder):
 		self.mini_batch = mini_batch
 		self.Ndata = self.layers[0].Ndata 
 		time_start = datetime.now()
+
+		# Copy the weights and biases into a state vector theta ###################################
+		weights = []
+		biases = []
+		for jj in range(self.mid * 2):
+			weights.append(copy.copy(self.layers[jj].weights))
+			biases.append(self.layers[jj].biases) 
+			
+		theta, indices, weights_shape, biases_shape = self._roll(weights, biases)
+		self.weights_shape = weights_shape
+		self.biases_shape = biases_shape
+		self.indices = indices
+
+		if method == "gd":
+			self.gd(data, iterations, cost_fct, regularisation=regularisation, corruption=corruption, **kwargs)
+			return
 
 		###########################################################################################
 		# Optimisation of the weights and biases according to the cost function
@@ -150,7 +219,8 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			self.layers[jj].weights = w
 			self.layers[jj].biases = b
 
-		m = data.shape[1]
+		m, Npix = data.shape
+		Npix, m = data.shape
 
 		# Forward pass
 		if corruption is not None:
@@ -217,7 +287,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			self.layers[jj].biases = b
 	
 		# Number of training examples
-		m = data.shape[1]
+		m, _ = data.shape
 
 		# Forward pass
 		if corruption is not None:
@@ -241,11 +311,10 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			if jj < self.mid * 2 - 1:
 
 				delta = (self.layers[jj+1].weights.dot(delta.T)).T
-				delta = np.array(delta)
 			
 			delta *= self.layers[jj].activation_fct_prime(self.layers[jj].activation)
 			
-			grad_w = (((self.layers[jj].input.T).dot(delta)) + self.regularisation * self.layers[jj].weights )/ m
+			grad_w = (((self.layers[jj].input.T).dot(delta))) / m + self.regularisation * self.layers[jj].weights
 			grad_b = np.mean(delta, axis=0)
 
 			wgrad.append(grad_w)
