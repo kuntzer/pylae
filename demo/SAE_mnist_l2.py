@@ -24,15 +24,15 @@ images_train = images[ids_train]
 images_test = images[ids_test]
 
 # Preparing the SAE
-dA = pylae.dA.AutoEncoder("sae_mnist_l2")
+dA = pylae.AE.AutoEncoder("sae_mnist_l2")
 
 architecture = [128, 64, 8]
 layers_activation = ["SIGMOID", "SIGMOID", "LINEAR"]
 cost_fct = 'L2'
 
 # Define what training we should do
-do_pre_train = False
-do_train = False
+do_pre_train = True
+do_train = True
 iters = 500
 
 # Layer pre-training
@@ -84,12 +84,12 @@ logging.info('AE cost: {:1.2e}'.format(metrics.mean_squared_error(images_test, i
 logging.info('PCA cost: {:1.2e}'.format(metrics.mean_squared_error(images_test, images_pca)))
 
 logging.info('** explained variance **')
-logging.info('AE cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_sae)))
-logging.info('PCA cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_pca)))
+logging.info('AE cost: {:1.3f}'.format(metrics.explained_variance_score(images_test, images_sae)))
+logging.info('PCA cost: {:1.3f}'.format(metrics.explained_variance_score(images_test, images_pca)))
 
 logging.info('** Residues **')
-logging.info('AE cost: {:1.2f}'.format(np.abs(images_test - images_sae).mean()))
-logging.info('PCA cost: {:1.2f}'.format(np.abs(images_test - images_pca).mean()))
+logging.info('AE cost: {:1.3f}'.format(np.abs(images_test - images_sae).mean()))
+logging.info('PCA cost: {:1.3f}'.format(np.abs(images_test - images_pca).mean()))
 
 # Now show the reconstructed images
 size = int(np.sqrt(np.shape(images_test)[1]))

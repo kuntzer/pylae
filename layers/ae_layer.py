@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Layer(layer.AE_layer):
-	def __init__(self, hidden_nodes, activation, corruption, debug):
+	def __init__(self, hidden_nodes, activation, debug):
 		"""
 		:param hidden_nodes: Number of neurons in layer
 		:param activation: Activation function for the layer
@@ -25,7 +25,6 @@ class Layer(layer.AE_layer):
 		self.hidden_nodes = hidden_nodes
 		self.activation_name = activation
 		self.train_history = []
-		self.corruption = corruption
 		self.debug = debug
 		self.it = 0
 		
@@ -44,15 +43,8 @@ class Layer(layer.AE_layer):
 		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
 
 		# Forward passes
-		if not self.corruption is None:
-			print 'coucou'
-			cdata = processing.corrupt(self, data, self.corruption)
-		else:
-			cdata = data
 		
-		ch = self.round_feedforward(cdata)
-		#if not self.corruption is None:
-		#	h = self.feedforward(data)
+		ch = self.round_feedforward(data)
 		hn = self.output
 			
 		# Compute the gradients:
@@ -115,26 +107,18 @@ class Layer(layer.AE_layer):
 		self.weights, self.inverse_biases, self.biases = self._unroll(theta)
 		# Forward passes
 		
-		if self.corruption is not None:
-			cdata = processing.corrupt(self, data, self.corruption)
-			ch = self.round_feedforward(cdata)
-		else:
-			cdata = data
-
 		h, activation_last = self.round_feedforward(data, return_activation=True)
-		if self.corruption is None:
-			ch = h
 			
 		# Back-propagation
 		prime = self.activation_fct_prime(activation_last)
-		deltal = (ch - data) * prime
+		deltal = (h - data) * prime
 		dEdvb = np.mean(deltal, axis=0)
 		
 		prime = self.activation_fct_prime(self.activation)
 		deltal = np.dot(deltal, self.weights) * prime
 		dEdhb = np.mean(deltal, axis=0)
 		
-		dEdw = (ch.T.dot(deltal)) / m + self.regularisation * self.weights
+		dEdw = (h.T.dot(deltal)) / m + self.regularisation * self.weights
 		grad = self._roll(dEdw, dEdvb, dEdhb)
 		
 		self.current_cost_value = np.sum((h - data) ** 2) / (2 * m) + ((self.regularisation / 2) * np.abs(self.weights)**2).sum()

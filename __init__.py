@@ -1,6 +1,6 @@
 __all__ = ["RBM_gd","utils","dautoencoder","autoencoder","plots","figures","processing","act"]
 
-import autoencoder
+import autoencoder as AE
 import dautoencoder as dA
 import utils
 import plots

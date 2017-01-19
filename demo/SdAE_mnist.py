@@ -88,12 +88,12 @@ logging.info('AE cost: {:1.2e}'.format(metrics.mean_squared_error(images_test, i
 logging.info('PCA cost: {:1.2e}'.format(metrics.mean_squared_error(images_test, images_pca)))
 
 logging.info('** explained variance **')
-logging.info('AE cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_sae)))
-logging.info('PCA cost: {:1.2f}'.format(metrics.explained_variance_score(images_test, images_pca)))
+logging.info('AE cost: {:1.3f}'.format(metrics.explained_variance_score(images_test, images_sae)))
+logging.info('PCA cost: {:1.3f}'.format(metrics.explained_variance_score(images_test, images_pca)))
 
 logging.info('** Residues **')
-logging.info('AE cost: {:1.2f}'.format(np.abs(images_test - images_sae).mean()))
-logging.info('PCA cost: {:1.2f}'.format(np.abs(images_test - images_pca).mean()))
+logging.info('AE cost: {:1.3f}'.format(np.abs(images_test - images_sae).mean()))
+logging.info('PCA cost: {:1.3f}'.format(np.abs(images_test - images_pca).mean()))
 
 # Now show the reconstructed images
 size = int(np.sqrt(np.shape(images_test)[1]))

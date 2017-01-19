@@ -14,12 +14,16 @@ class AutoEncoder(classae.GenericAutoEncoder):
 	
 	def pre_train(self, data, architecture, layers_activations, mini_batch, iterations, corruption=None, regularisation=0, **kwargs):
 
+		# Simpler way
+		"""
 		if self.layer_type == "dA" :
 			import layers.dA_layer as network
 			logger.info("layers.dA_layer used as layer")
 		else:
 			raise RuntimeError("Layer/pre-training type %s unknown." % self.rbm_type)
-		
+		"""
+		import layers.dA_layer as network
+		logger.info("layers.dA_layer used as layer")
 		if not len(architecture) == len(layers_activations):
 			raise ValueError("The size of the list of activation function must match the number of layers.")
 		
@@ -261,7 +265,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 				dEda = wp1.dot(dEda) * (a * (1. - a))
 				
 			dEdb = np.mean(dEda, axis=1)
-			dEdw = ((dEda).dot(hn).T + self.regularisation * self.layers[jj].weights) / m
+			dEdw = ((dEda).dot(hn).T) / m + self.regularisation * self.layers[jj].weights
 			
 			wgrad.append(dEdw)
 			bgrad.append(dEdb)
@@ -314,7 +318,7 @@ class AutoEncoder(classae.GenericAutoEncoder):
 			
 			delta *= self.layers[jj].activation_fct_prime(self.layers[jj].activation)
 			
-			grad_w = (((self.layers[jj].input.T).dot(delta))) / m + self.regularisation * self.layers[jj].weights
+			grad_w = (((self.layers[jj].input.T).dot(delta))) / 784 + self.regularisation * self.layers[jj].weights
 			grad_b = np.mean(delta, axis=0)
 
 			wgrad.append(grad_w)
