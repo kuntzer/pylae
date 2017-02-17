@@ -45,7 +45,6 @@ class Layer(layer.AE_layer):
 
 		# Forward passes
 		if not self.corruption is None:
-			print 'coucou'
 			cdata = processing.corrupt(self, data, self.corruption)
 		else:
 			cdata = data
