@@ -31,8 +31,8 @@ layers_activation = ["SIGMOID", "SIGMOID", "SIGMOID"]
 cost_fct = 'cross-entropy'
 
 # Define what training we should do
-do_pre_train = True
-do_train = True
+do_pre_train = False
+do_train = False
 iters = 10000
 
 # Layer pre-training

@@ -98,7 +98,7 @@ def relu(x):
 def leaky_relu(x, alpha=0.01):
 	
 	res = np.ones_like(x) * x
-	res[x <= 0.] = alpha
+	res[x <= 0.] = alpha * x
 
 	return res
 
@@ -113,7 +113,7 @@ def relu_prime(x):
 def leaky_relu_prime(x, alpha=0.01):
 	
 	res = np.ones_like(x) * x
-	res[x <= 0] = alpha
+	res[x <= 0] = alpha * x
 	res[x > 0] = 1.
 	
 	return res
